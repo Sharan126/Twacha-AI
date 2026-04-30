@@ -1,0 +1,18 @@
+{
+    "tfjsVersion": "1.7.4",
+    "tmVersion": "2.4.13",
+    "packageVersion": "0.8.4-alpha2",
+    "packageName": "@teachablemachine/image",
+    "timeStamp": "2026-04-30T06:36:23.630Z",
+    "userMetadata": {},
+    "modelName": "tm-my-image-model",
+    "labels": [
+        "Eczema",
+        "Melanoma",
+        "Atopic Dermatitis",
+        "Basal Cell Carcinoma (BCC)",
+        "Melanoma Nevi(NV)",
+        "Benign keratosis-Like Lesions (BKL)"
+    ],
+    "imageSize": 224
+}

@@ -1,135 +1,91 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import * as tf from '@tensorflow/tfjs';
+import Webcam from 'react-webcam';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   UploadCloud, Camera, Image as ImageIcon,
-  Activity, RefreshCw, StopCircle, Play
+  Activity, RefreshCw, StopCircle, Play, AlertTriangle
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import './Scan.css';
 
-// ── Teachable Machine model path (place your exported model here) ──────────
-const MODEL_URL = '/my_model/';
-
-// Dynamically load a script only once
-function loadScript(src) {
-  return new Promise((resolve, reject) => {
-    if (document.querySelector(`script[src="${src}"]`)) { resolve(); return; }
-    const s = document.createElement('script');
-    s.src = src;
-    s.async = true;
-    s.onload = resolve;
-    s.onerror = reject;
-    document.head.appendChild(s);
-  });
-}
+// Model files served from /public root
+const MODEL_JSON_URL = '/model.json';
+const METADATA_URL = '/metadata.json';
 
 const Scan = () => {
   const navigate = useNavigate();
 
-  // ── Tab: 'upload' | 'webcam' ──────────────────────────────────────────────
+  // ── Tab state ──────────────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState('upload');
 
-  // ── Upload flow state ─────────────────────────────────────────────────────
+  // ── Model state ────────────────────────────────────────────────────────────
+  const [modelReady, setModelReady] = useState(false);
+  const [modelError, setModelError] = useState('');
+  const tfModelRef = useRef(null);   // { model, labels }
+
+  // ── Upload tab state ───────────────────────────────────────────────────────
   const [image, setImage] = useState(null);
   const [isScanning, setIsScanning] = useState(false);
   const [result, setResult] = useState(null);
   const [showHeatmap, setShowHeatmap] = useState(false);
 
-  // ── Webcam / TM flow state ─────────────────────────────────────────────────
-  const [tmReady, setTmReady] = useState(false);      // scripts loaded
-  const [tmRunning, setTmRunning] = useState(false);  // webcam loop active
-  const [tmLoading, setTmLoading] = useState(false);  // model loading
-  const [tmError, setTmError] = useState('');
-  const [predictions, setPredictions] = useState([]);  // [{ className, probability }]
-
-  const webcamContainerRef = useRef(null);
-  const tmModelRef = useRef(null);
-  const tmWebcamRef = useRef(null);
+  // ── Webcam tab state ───────────────────────────────────────────────────────
+  const [camRunning, setCamRunning] = useState(false);
+  const [camError, setCamError] = useState('');
+  const [livePredictions, setLivePredictions] = useState([]);
+  const webcamRef = useRef(null);
   const rafRef = useRef(null);
 
-  // ── Load TF.js + Teachable Machine scripts on mount ────────────────────────
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  LOAD MODEL (once on mount)
+  // ═══════════════════════════════════════════════════════════════════════════
   useEffect(() => {
-    Promise.all([
-      loadScript('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js'),
-      loadScript('https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js'),
-    ])
-      .then(() => setTmReady(true))
-      .catch(() => setTmError('Failed to load AI libraries. Check your connection.'));
-  }, []);
-
-  // ── Start live webcam scan ─────────────────────────────────────────────────
-  const startWebcam = useCallback(async () => {
-    if (!tmReady) { setTmError('AI libraries not ready yet.'); return; }
-    setTmLoading(true);
-    setTmError('');
-    try {
-      const tmImage = window.tmImage;
-      const model = await tmImage.load(
-        MODEL_URL + 'model.json',
-        MODEL_URL + 'metadata.json'
-      );
-      tmModelRef.current = model;
-
-      const webcam = new tmImage.Webcam(300, 300, true); // flip
-      await webcam.setup();
-      await webcam.play();
-      tmWebcamRef.current = webcam;
-
-      // Clear container & append webcam canvas
-      if (webcamContainerRef.current) {
-        webcamContainerRef.current.innerHTML = '';
-        webcamContainerRef.current.appendChild(webcam.canvas);
+    const loadModel = async () => {
+      try {
+        const [loadedModel, metaRes] = await Promise.all([
+          tf.loadLayersModel(MODEL_JSON_URL),
+          fetch(METADATA_URL),
+        ]);
+        const meta = await metaRes.json();
+        tfModelRef.current = { model: loadedModel, labels: meta.labels };
+        setModelReady(true);
+        console.log('✅ TF model loaded — classes:', meta.labels);
+      } catch (err) {
+        console.error('Model load error:', err);
+        setModelError(`Failed to load model: ${err.message}`);
       }
-
-      // Init prediction placeholders
-      setPredictions(
-        Array.from({ length: model.getTotalClasses() }, (_, i) => ({
-          className: `Class ${i + 1}`,
-          probability: 0,
-        }))
-      );
-
-      setTmRunning(true);
-      setTmLoading(false);
-
-      // Loop
-      const loop = async () => {
-        webcam.update();
-        const preds = await model.predict(webcam.canvas);
-        setPredictions(preds);
-        rafRef.current = requestAnimationFrame(loop);
-      };
-      rafRef.current = requestAnimationFrame(loop);
-    } catch (err) {
-      setTmError(
-        err?.message?.includes('model')
-          ? 'Model not found. Place your exported model in /public/my_model/.'
-          : `Webcam error: ${err.message}`
-      );
-      setTmLoading(false);
-    }
-  }, [tmReady]);
-
-  // ── Stop webcam ────────────────────────────────────────────────────────────
-  const stopWebcam = useCallback(() => {
-    if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    if (tmWebcamRef.current) tmWebcamRef.current.stop();
-    if (webcamContainerRef.current) webcamContainerRef.current.innerHTML = '';
-    tmModelRef.current = null;
-    tmWebcamRef.current = null;
-    setPredictions([]);
-    setTmRunning(false);
+    };
+    loadModel();
   }, []);
 
-  // Stop webcam when switching away
-  useEffect(() => {
-    if (activeTab !== 'webcam') stopWebcam();
-  }, [activeTab, stopWebcam]);
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  PREDICTION HELPER (shared by upload + webcam)
+  // ═══════════════════════════════════════════════════════════════════════════
+  const runPrediction = useCallback((inputElement) => {
+    if (!tfModelRef.current) return null;
+    const { model, labels } = tfModelRef.current;
 
-  // Cleanup on unmount
-  useEffect(() => () => stopWebcam(), [stopWebcam]);
+    const tensor = tf.tidy(() =>
+      tf.browser.fromPixels(inputElement)
+        .resizeNearestNeighbor([224, 224])
+        .toFloat()
+        .div(255.0)
+        .expandDims()
+    );
 
-  // ── Upload flow handlers ────────────────────────────────────────────────────
+    return model.predict(tensor).data().then((predictionData) => {
+      tensor.dispose();
+      return labels.map((className, i) => ({
+        className,
+        probability: predictionData[i],
+      }));
+    });
+  }, []);
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  UPLOAD TAB — handlers
+  // ═══════════════════════════════════════════════════════════════════════════
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
     if (file) { setImage(URL.createObjectURL(file)); setResult(null); }
@@ -142,34 +98,33 @@ const Scan = () => {
   };
 
   const startScan = async () => {
-    if (!tmReady || !image) return;
+    if (!image || !modelReady) return;
     setIsScanning(true);
     setResult(null);
 
     try {
-      const tmImage = window.tmImage;
-      const model = await tmImage.load(
-        MODEL_URL + 'model.json',
-        MODEL_URL + 'metadata.json'
-      );
-      const img = document.getElementById('preview-img-el');
-      const preds = await model.predict(img);
+      const imgEl = document.getElementById('preview-img-el');
+      const allPredictions = await runPrediction(imgEl);
+      if (!allPredictions) throw new Error('Model not loaded');
 
-      // Pick best prediction
-      const best = preds.reduce((a, b) => a.probability > b.probability ? a : b);
+      const best = allPredictions.reduce((a, b) =>
+        a.probability > b.probability ? a : b
+      );
+
       setResult({
         disease: best.className,
         confidence: (best.probability * 100).toFixed(1),
-        allPredictions: preds,
-        explanation: `AI analysis identified this as "${best.className}" with ${(best.probability * 100).toFixed(1)}% confidence. This is an AI-assisted result — please consult a certified dermatologist for a medical diagnosis.`,
+        allPredictions,
+        explanation: `AI analysis identified this as "${best.className}" with ${
+          (best.probability * 100).toFixed(1)
+        }% confidence. This is an AI-assisted result — please consult a certified dermatologist for a medical diagnosis.`,
       });
-    } catch {
-      // Fallback: model not available — run mock
+    } catch (err) {
       setResult({
-        disease: 'Benign Nevus (Mole)',
-        confidence: '94.5',
+        disease: 'Analysis Error',
+        confidence: '0',
         allPredictions: [],
-        explanation: 'Model not found. This is a demo result. Place your exported Teachable Machine model in /public/my_model/ and scan again.',
+        explanation: `Scan failed: ${err.message}. Ensure model.json, metadata.json, and weights.bin are in /public.`,
       });
     }
 
@@ -178,11 +133,79 @@ const Scan = () => {
 
   const resetScan = () => { setImage(null); setResult(null); setShowHeatmap(false); };
 
-  // ── Top prediction for live feed badge ──────────────────────────────────────
-  const topPred = predictions.length
-    ? predictions.reduce((a, b) => a.probability > b.probability ? a : b)
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  WEBCAM TAB — real-time prediction loop
+  // ═══════════════════════════════════════════════════════════════════════════
+  const startCamera = useCallback(() => {
+    if (!modelReady) { setCamError('Model not loaded yet. Please wait...'); return; }
+    setCamError('');
+    setCamRunning(true);
+  }, [modelReady]);
+
+  const stopCamera = useCallback(() => {
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    rafRef.current = null;
+    setCamRunning(false);
+    setLivePredictions([]);
+  }, []);
+
+  // Prediction loop — runs when camRunning is true
+  useEffect(() => {
+    if (!camRunning || !modelReady) return;
+
+    let active = true;
+
+    const loop = async () => {
+      if (!active) return;
+
+      const video = webcamRef.current?.video;
+      if (video && video.readyState === 4) {
+        try {
+          const preds = await runPrediction(video);
+          if (preds && active) setLivePredictions(preds);
+        } catch (e) {
+          console.warn('Prediction frame error:', e);
+        }
+      }
+
+      if (active) rafRef.current = requestAnimationFrame(loop);
+    };
+
+    rafRef.current = requestAnimationFrame(loop);
+
+    return () => {
+      active = false;
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+  }, [camRunning, modelReady, runPrediction]);
+
+  // Stop camera when switching tabs
+  useEffect(() => {
+    if (activeTab !== 'webcam') stopCamera();
+  }, [activeTab, stopCamera]);
+
+  // Cleanup on unmount
+  useEffect(() => () => stopCamera(), [stopCamera]);
+
+  // Webcam error handler
+  const handleCamError = useCallback((err) => {
+    console.error('Webcam error:', err);
+    setCamError(
+      err?.name === 'NotAllowedError'
+        ? 'Camera permission denied. Please allow camera access and try again.'
+        : `Camera error: ${err?.message || 'Unknown error'}`
+    );
+    setCamRunning(false);
+  }, []);
+
+  // ── Top prediction for live badge ──────────────────────────────────────
+  const topPred = livePredictions.length
+    ? livePredictions.reduce((a, b) => a.probability > b.probability ? a : b)
     : null;
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  RENDER
+  // ═══════════════════════════════════════════════════════════════════════════
   return (
     <div className="scan-page container">
       <motion.div
@@ -192,9 +215,26 @@ const Scan = () => {
       >
         <h2>AI Skin Analysis</h2>
         <p>Upload a photo or use live camera for an instant AI assessment.</p>
+
+        {/* Model loading status */}
+        {!modelReady && !modelError && (
+          <div className="model-status loading">
+            <Activity size={16} className="spinner" /> Loading AI model...
+          </div>
+        )}
+        {modelReady && (
+          <div className="model-status ready">
+            ✅ AI model ready — 6 skin conditions
+          </div>
+        )}
+        {modelError && (
+          <div className="model-status error">
+            <AlertTriangle size={16} /> {modelError}
+          </div>
+        )}
       </motion.div>
 
-      {/* ── Tab Switcher ───────────────────────────────────────────────────── */}
+      {/* ── Tab Switcher ─────────────────────────────────────────────────── */}
       <div className="scan-tabs glass">
         <button
           className={`scan-tab ${activeTab === 'upload' ? 'active' : ''}`}
@@ -212,7 +252,7 @@ const Scan = () => {
 
       <div className="scan-content">
 
-        {/* ══════════════ UPLOAD TAB ════════════════════════════════════════ */}
+        {/* ══════════ UPLOAD TAB ═══════════════════════════════════════════ */}
         {activeTab === 'upload' && (
           <>
             {!image && (
@@ -255,8 +295,8 @@ const Scan = () => {
                   </div>
                   <div className="preview-actions">
                     <button className="btn-secondary" onClick={resetScan} disabled={isScanning}>Cancel</button>
-                    <button className="btn-primary" onClick={startScan} disabled={isScanning}>
-                      {isScanning ? 'Analyzing...' : 'Analyze Skin'}
+                    <button className="btn-primary" onClick={startScan} disabled={isScanning || !modelReady}>
+                      {isScanning ? 'Analyzing...' : modelReady ? 'Analyze Skin' : 'Loading model...'}
                     </button>
                   </div>
                 </motion.div>
@@ -294,17 +334,13 @@ const Scan = () => {
                         </div>
                       </div>
 
-                      {/* All class predictions */}
                       {result.allPredictions?.length > 0 && (
                         <div className="all-predictions glass-card">
                           {result.allPredictions.map((p) => (
                             <div key={p.className} className="pred-row">
                               <span className="pred-name">{p.className}</span>
                               <div className="pred-bar-wrap">
-                                <div
-                                  className="pred-bar"
-                                  style={{ width: `${(p.probability * 100).toFixed(1)}%` }}
-                                />
+                                <div className="pred-bar" style={{ width: `${(p.probability * 100).toFixed(1)}%` }} />
                               </div>
                               <span className="pred-val">{(p.probability * 100).toFixed(1)}%</span>
                             </div>
@@ -332,7 +368,7 @@ const Scan = () => {
           </>
         )}
 
-        {/* ══════════════ WEBCAM TAB ════════════════════════════════════════ */}
+        {/* ══════════ WEBCAM TAB ══════════════════════════════════════════ */}
         {activeTab === 'webcam' && (
           <motion.div
             className="webcam-section glass-card"
@@ -340,29 +376,27 @@ const Scan = () => {
             animate={{ opacity: 1, scale: 1 }}
           >
             <div className="webcam-feed-wrap">
-              {/* Webcam canvas is injected here by TM */}
-              <div
-                ref={webcamContainerRef}
-                className="webcam-canvas-container"
-                id="webcam-container"
-              />
-
-              {!tmRunning && !tmLoading && (
+              {camRunning ? (
+                <Webcam
+                  ref={webcamRef}
+                  audio={false}
+                  width={300}
+                  height={300}
+                  mirrored
+                  screenshotFormat="image/jpeg"
+                  videoConstraints={{ facingMode: 'user', width: 300, height: 300 }}
+                  onUserMediaError={handleCamError}
+                  style={{ borderRadius: 'var(--radius-md)', display: 'block' }}
+                />
+              ) : (
                 <div className="webcam-placeholder">
                   <Camera size={56} className="text-primary" />
                   <p className="text-muted">Camera not started</p>
                 </div>
               )}
 
-              {tmLoading && (
-                <div className="webcam-placeholder">
-                  <Activity size={48} className="spinner text-primary" />
-                  <p>Loading model & camera...</p>
-                </div>
-              )}
-
               {/* Live top-prediction badge */}
-              {tmRunning && topPred && (
+              {camRunning && topPred && (
                 <div className="live-badge glass">
                   🔴 Live — <strong>{topPred.className}</strong>{' '}
                   <span className="text-primary">
@@ -373,10 +407,10 @@ const Scan = () => {
             </div>
 
             {/* Live predictions bar chart */}
-            {tmRunning && predictions.length > 0 && (
+            {camRunning && livePredictions.length > 0 && (
               <div className="live-predictions glass-card">
                 <h4>Live Predictions</h4>
-                {predictions.map((p) => (
+                {livePredictions.map((p) => (
                   <div key={p.className} className="pred-row">
                     <span className="pred-name">{p.className}</span>
                     <div className="pred-bar-wrap">
@@ -392,27 +426,29 @@ const Scan = () => {
               </div>
             )}
 
-            {tmError && (
+            {/* Errors */}
+            {camError && (
               <div className="tm-error glass-card">
-                ⚠️ {tmError}
+                <AlertTriangle size={16} /> {camError}
               </div>
             )}
 
+            {/* Controls */}
             <div className="webcam-controls">
-              {!tmRunning ? (
+              {!camRunning ? (
                 <button
                   className="btn-primary flex-center"
-                  onClick={startWebcam}
-                  disabled={tmLoading || !tmReady}
+                  onClick={startCamera}
+                  disabled={!modelReady}
                   style={{ gap: '0.5rem' }}
                 >
                   <Play size={18} />
-                  {tmLoading ? 'Loading...' : 'Start Camera Scan'}
+                  {modelReady ? 'Start Camera Scan' : 'Loading model...'}
                 </button>
               ) : (
                 <button
                   className="btn-secondary flex-center text-danger"
-                  onClick={stopWebcam}
+                  onClick={stopCamera}
                   style={{ gap: '0.5rem' }}
                 >
                   <StopCircle size={18} /> Stop Camera
@@ -421,8 +457,8 @@ const Scan = () => {
             </div>
 
             <p className="webcam-note text-muted">
-              Point your camera at the skin area. The model classifies in real-time.<br />
-              Place your exported Teachable Machine model in <code>/public/my_model/</code>.
+              Point your camera at the skin area. AI classifies in real-time using TensorFlow.js.<br />
+              Detected conditions: Eczema, Melanoma, Atopic Dermatitis, BCC, Melanoma Nevi, BKL
             </p>
           </motion.div>
         )}
