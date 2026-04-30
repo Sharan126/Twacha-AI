@@ -50,8 +50,8 @@ const Home = () => {
             <button className="btn-secondary" onClick={() => navigate('/doctors')}>
               {t('home.findDoctor')}
             </button>
-            <button className="btn-secondary flex-center gap-sm" onClick={() => setIsWalkthroughActive(true)} style={{ border: '1px solid var(--primary)', color: 'var(--primary)' }}>
-              <PlayCircle size={18} /> Take a Tour
+            <button className="btn-tour" onClick={() => setIsWalkthroughActive(true)}>
+              <PlayCircle size={18} /> {t('home.takeTour')}
             </button>
           </div>
         </motion.div>

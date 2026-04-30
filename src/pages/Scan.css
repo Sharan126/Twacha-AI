@@ -240,3 +240,167 @@
   gap: 1rem;
   margin-top: 1rem;
 }
+
+/* ── Scan Tabs ──────────────────────────────────────────────────────────── */
+.scan-tabs {
+  display: flex;
+  border-radius: var(--radius-full);
+  padding: 4px;
+  max-width: 360px;
+  margin: 0 auto 2.5rem;
+  gap: 4px;
+}
+
+.scan-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.6rem 1rem;
+  border-radius: var(--radius-full);
+  font-size: 0.875rem;
+  font-weight: 600;
+  font-family: inherit;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  background: transparent;
+  transition: var(--transition);
+}
+
+.scan-tab.active {
+  background: linear-gradient(135deg, var(--primary), var(--secondary));
+  color: white;
+  box-shadow: var(--shadow-md);
+}
+
+/* ── Webcam Section ─────────────────────────────────────────────────────── */
+.webcam-section {
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  align-items: center;
+}
+
+.webcam-feed-wrap {
+  position: relative;
+  width: 300px;
+  height: 300px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--bg-color);
+  border: 2px solid var(--border-glass);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.webcam-canvas-container canvas {
+  border-radius: var(--radius-md);
+  display: block;
+}
+
+.webcam-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 2rem;
+}
+
+.live-badge {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0.35rem 0.9rem;
+  border-radius: var(--radius-full);
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+/* ── Prediction Bars ─────────────────────────────────────────────────────── */
+.live-predictions,
+.all-predictions {
+  width: 100%;
+  padding: 1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.live-predictions h4 {
+  margin-bottom: 0.25rem;
+  font-size: 0.95rem;
+}
+
+.pred-row {
+  display: grid;
+  grid-template-columns: 130px 1fr 48px;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.pred-name {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pred-bar-wrap {
+  background: var(--bg-color);
+  border-radius: var(--radius-full);
+  height: 8px;
+  overflow: hidden;
+}
+
+.pred-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--primary), var(--secondary));
+  border-radius: var(--radius-full);
+  transition: width 0.25s ease;
+  min-width: 2px;
+}
+
+.pred-val {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--primary);
+  text-align: right;
+}
+
+/* ── Webcam Controls ─────────────────────────────────────────────────────── */
+.webcam-controls {
+  display: flex;
+  gap: 1rem;
+}
+
+.webcam-note {
+  font-size: 0.8rem;
+  text-align: center;
+  line-height: 1.6;
+}
+
+.webcam-note code {
+  background: rgba(79, 70, 229, 0.1);
+  color: var(--primary);
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  font-size: 0.78rem;
+}
+
+.tm-error {
+  padding: 0.85rem 1rem;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  border-radius: var(--radius-sm);
+  color: var(--danger);
+  font-size: 0.875rem;
+  width: 100%;
+  text-align: center;
+}

@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Twacha AI — Skin Scan (Teachable Machine)</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%);
+      min-height: 100vh;
+      color: #f1f5f9;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem 1rem;
+    }
+
+    /* ── Header ── */
+    .header {
+      text-align: center;
+      margin-bottom: 2.5rem;
+    }
+    .logo {
+      font-size: 1.5rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, #818cf8, #06b6d4);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: -0.5px;
+      margin-bottom: 0.5rem;
+    }
+    .header h1 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: #f1f5f9;
+    }
+    .header p {
+      color: #94a3b8;
+      margin-top: 0.4rem;
+      font-size: 0.95rem;
+    }
+
+    /* ── Card ── */
+    .card {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 20px;
+      backdrop-filter: blur(16px);
+      padding: 2rem;
+      width: 100%;
+      max-width: 540px;
+      box-shadow: 0 24px 64px rgba(0,0,0,0.4);
+    }
+
+    /* ── Webcam Feed ── */
+    #webcam-container {
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      margin-bottom: 1.25rem;
+      border-radius: 14px;
+      overflow: hidden;
+      background: rgba(0,0,0,0.3);
+      min-height: 210px;
+      align-items: center;
+    }
+
+    #webcam-container canvas {
+      border-radius: 12px;
+      display: block;
+    }
+
+    .webcam-placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 2.5rem;
+      color: #64748b;
+    }
+    .webcam-placeholder svg {
+      opacity: 0.4;
+    }
+
+    /* ── Predictions ── */
+    #label-container {
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .pred-item {
+      display: grid;
+      grid-template-columns: 140px 1fr 48px;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .pred-label {
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: #cbd5e1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .pred-bar-track {
+      height: 8px;
+      background: rgba(255,255,255,0.08);
+      border-radius: 99px;
+      overflow: hidden;
+    }
+
+    .pred-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #4f46e5, #06b6d4);
+      border-radius: 99px;
+      transition: width 0.2s ease;
+      min-width: 2px;
+    }
+
+    .pred-pct {
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: #818cf8;
+      text-align: right;
+    }
+
+    /* ── Live badge ── */
+    .live-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      background: rgba(16,185,129,0.15);
+      border: 1px solid rgba(16,185,129,0.3);
+      color: #10b981;
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 0.3rem 0.75rem;
+      border-radius: 99px;
+      margin-bottom: 1rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      display: none;
+    }
+
+    .live-dot {
+      width: 7px;
+      height: 7px;
+      background: #10b981;
+      border-radius: 50%;
+      animation: blink 1s infinite;
+    }
+
+    @keyframes blink {
+      0%,100% { opacity: 1; }
+      50%      { opacity: 0.2; }
+    }
+
+    /* ── Buttons ── */
+    .btn-row {
+      display: flex;
+      gap: 0.75rem;
+      justify-content: center;
+    }
+
+    button {
+      cursor: pointer;
+      font-family: inherit;
+      font-weight: 600;
+      font-size: 0.95rem;
+      border: none;
+      border-radius: 99px;
+      padding: 0.7rem 1.75rem;
+      transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s;
+    }
+
+    button:active { transform: scale(0.97); }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    #btn-start {
+      background: linear-gradient(135deg, #4f46e5, #06b6d4);
+      color: white;
+      box-shadow: 0 4px 20px rgba(79,70,229,0.35);
+    }
+    #btn-start:hover:not(:disabled) {
+      box-shadow: 0 6px 28px rgba(79,70,229,0.5);
+      transform: translateY(-1px);
+    }
+
+    #btn-stop {
+      background: rgba(239,68,68,0.12);
+      border: 1px solid rgba(239,68,68,0.3);
+      color: #f87171;
+      display: none;
+    }
+    #btn-stop:hover { background: rgba(239,68,68,0.2); }
+
+    /* ── Status / Error ── */
+    #status {
+      text-align: center;
+      font-size: 0.85rem;
+      color: #64748b;
+      margin-top: 1rem;
+      min-height: 1.2em;
+    }
+
+    .error-box {
+      background: rgba(239,68,68,0.1);
+      border: 1px solid rgba(239,68,68,0.25);
+      color: #f87171;
+      border-radius: 10px;
+      padding: 0.85rem 1rem;
+      font-size: 0.85rem;
+      margin-top: 0.75rem;
+      text-align: center;
+      display: none;
+    }
+
+    /* ── Back link ── */
+    .back-link {
+      margin-bottom: 1.5rem;
+      align-self: flex-start;
+    }
+    .back-link a {
+      color: #818cf8;
+      text-decoration: none;
+      font-size: 0.9rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+    .back-link a:hover { color: #06b6d4; }
+  </style>
+</head>
+<body>
+
+  <div class="back-link">
+    <a href="/">← Back to Twacha AI</a>
+  </div>
+
+  <div class="header">
+    <div class="logo">Twacha AI</div>
+    <h1>Teachable Machine Skin Scan</h1>
+    <p>Real-time AI skin analysis via your webcam</p>
+  </div>
+
+  <div class="card">
+    <div class="live-badge" id="live-badge">
+      <span class="live-dot"></span> Live
+    </div>
+
+    <!-- Webcam -->
+    <div id="webcam-container">
+      <div class="webcam-placeholder" id="placeholder">
+        <svg width="56" height="56" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z" />
+          <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0ZM18.75 10.5h.008v.008h-.008V10.5Z" />
+        </svg>
+        <span>Camera not started</span>
+      </div>
+    </div>
+
+    <!-- Predictions -->
+    <div id="label-container"></div>
+
+    <!-- Buttons -->
+    <div class="btn-row">
+      <button id="btn-start" onclick="init()">▶ Start Camera Scan</button>
+      <button id="btn-stop"  onclick="stopScan()">■ Stop</button>
+    </div>
+
+    <div id="status">Model path: <code>/my_model/</code></div>
+    <div class="error-box" id="error-box"></div>
+  </div>
+
+  <script>
+    // ── Config ─────────────────────────────────────────────────────────────
+    const MODEL_URL = '/my_model/';
+
+    let model, webcam, labelContainer, maxPredictions, rafId;
+
+    function setStatus(msg) {
+      document.getElementById('status').textContent = msg;
+    }
+
+    function showError(msg) {
+      const box = document.getElementById('error-box');
+      box.textContent = '⚠️ ' + msg;
+      box.style.display = 'block';
+    }
+
+    // ── Init ────────────────────────────────────────────────────────────────
+    async function init() {
+      const btnStart = document.getElementById('btn-start');
+      const btnStop  = document.getElementById('btn-stop');
+      document.getElementById('error-box').style.display = 'none';
+
+      btnStart.disabled = true;
+      setStatus('Loading model…');
+
+      try {
+        // Load model
+        model = await tmImage.load(MODEL_URL + 'model.json', MODEL_URL + 'metadata.json');
+        maxPredictions = model.getTotalClasses();
+        setStatus('Model loaded. Starting webcam…');
+
+        // Setup webcam
+        const flip = true;
+        webcam = new tmImage.Webcam(300, 300, flip);
+        await webcam.setup();
+        await webcam.play();
+
+        // Mount canvas — remove placeholder
+        const container = document.getElementById('webcam-container');
+        document.getElementById('placeholder').style.display = 'none';
+        container.appendChild(webcam.canvas);
+
+        // Build label rows
+        labelContainer = document.getElementById('label-container');
+        labelContainer.innerHTML = '';
+        for (let i = 0; i < maxPredictions; i++) {
+          const row  = document.createElement('div');
+          row.className = 'pred-item';
+
+          const lbl  = document.createElement('span');
+          lbl.className = 'pred-label';
+          lbl.id = 'lbl-' + i;
+
+          const track = document.createElement('div');
+          track.className = 'pred-bar-track';
+          const fill = document.createElement('div');
+          fill.className = 'pred-bar-fill';
+          fill.id = 'bar-' + i;
+          fill.style.width = '0%';
+          track.appendChild(fill);
+
+          const pct = document.createElement('span');
+          pct.className = 'pred-pct';
+          pct.id = 'pct-' + i;
+          pct.textContent = '0%';
+
+          row.appendChild(lbl);
+          row.appendChild(track);
+          row.appendChild(pct);
+          labelContainer.appendChild(row);
+        }
+
+        // Show live badge & stop button
+        document.getElementById('live-badge').style.display = 'inline-flex';
+        btnStop.style.display = 'inline-block';
+        setStatus('Running — point your camera at the skin area');
+
+        rafId = requestAnimationFrame(loop);
+
+      } catch (err) {
+        btnStart.disabled = false;
+        const msg = err?.message || String(err);
+        if (msg.includes('model') || msg.includes('fetch') || msg.includes('404')) {
+          showError('Model not found. Make sure model.json, metadata.json, and weights.bin are in /public/my_model/');
+        } else if (msg.includes('Permission') || msg.includes('camera') || msg.includes('NotAllowed')) {
+          showError('Camera permission denied. Please allow camera access and try again.');
+        } else {
+          showError(msg);
+        }
+        setStatus('');
+      }
+    }
+
+    // ── Predict loop ─────────────────────────────────────────────────────────
+    async function loop() {
+      webcam.update();
+      await predict();
+      rafId = requestAnimationFrame(loop);
+    }
+
+    async function predict() {
+      const prediction = await model.predict(webcam.canvas);
+      for (let i = 0; i < maxPredictions; i++) {
+        const pct = (prediction[i].probability * 100).toFixed(1);
+        const lbl = document.getElementById('lbl-' + i);
+        const bar = document.getElementById('bar-' + i);
+        const val = document.getElementById('pct-' + i);
+        if (lbl) lbl.textContent = prediction[i].className;
+        if (bar) bar.style.width = pct + '%';
+        if (val) val.textContent = pct + '%';
+      }
+    }
+
+    // ── Stop ─────────────────────────────────────────────────────────────────
+    function stopScan() {
+      if (rafId) cancelAnimationFrame(rafId);
+      if (webcam) webcam.stop();
+
+      // Clear canvas
+      const container = document.getElementById('webcam-container');
+      const canvas = container.querySelector('canvas');
+      if (canvas) canvas.remove();
+      document.getElementById('placeholder').style.display = 'flex';
+
+      document.getElementById('label-container').innerHTML = '';
+      document.getElementById('live-badge').style.display = 'none';
+      document.getElementById('btn-stop').style.display = 'none';
+      document.getElementById('btn-start').disabled = false;
+      setStatus('Stopped. Click Start to scan again.');
+    }
+  </script>
+</body>
+</html>

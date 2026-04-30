@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AppProvider } from './context/AppContext';
+import { AuthProvider } from './context/AuthContext';
 import Navbar from './components/Navbar';
 import Home from './pages/Home';
 import Scan from './pages/Scan';
@@ -18,30 +19,32 @@ import DoctorFeedbackModal from './components/DoctorFeedbackModal';
 
 function App() {
   return (
-    <AppProvider>
-      <Router>
-        <div className="app-wrapper">
-          <Navbar />
-          <main>
-            <Routes>
-              <Route path="/" element={<Home />} />
-              <Route path="/scan" element={<Scan />} />
-              <Route path="/doctors" element={<Doctors />} />
-              <Route path="/history" element={<History />} />
-              <Route path="/records" element={<Records />} />
-              <Route path="/medications" element={<Medications />} />
-              <Route path="/tips" element={<Tips />} />
-              <Route path="/settings" element={<Settings />} />
-              <Route path="/auth" element={<Auth />} />
-            </Routes>
-          </main>
-          <AIGuide />
-          <WalkthroughOverlay />
-          <WebsiteFeedbackModal />
-          <DoctorFeedbackModal />
-        </div>
-      </Router>
-    </AppProvider>
+    <AuthProvider>
+      <AppProvider>
+        <Router>
+          <div className="app-wrapper">
+            <Navbar />
+            <main>
+              <Routes>
+                <Route path="/" element={<Home />} />
+                <Route path="/scan" element={<Scan />} />
+                <Route path="/doctors" element={<Doctors />} />
+                <Route path="/history" element={<History />} />
+                <Route path="/records" element={<Records />} />
+                <Route path="/medications" element={<Medications />} />
+                <Route path="/tips" element={<Tips />} />
+                <Route path="/settings" element={<Settings />} />
+                <Route path="/auth" element={<Auth />} />
+              </Routes>
+            </main>
+            <AIGuide />
+            <WalkthroughOverlay />
+            <WebsiteFeedbackModal />
+            <DoctorFeedbackModal />
+          </div>
+        </Router>
+      </AppProvider>
+    </AuthProvider>
   );
 }
 

@@ -1,117 +1,205 @@
+/* ============================================
+   Home Page — Premium Healthcare Theme
+   ============================================ */
+
 .home-page {
-  padding-top: 120px; /* Space for navbar */
+  padding-top: 90px;
+  padding-bottom: 4rem;
   min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
+/* Hero */
 .hero-section {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 4rem;
+  gap: 3rem;
   width: 100%;
 }
 
 .hero-content {
   text-align: center;
-  max-width: 800px;
+  max-width: 760px;
   margin: 0 auto;
 }
 
 .badge {
   display: inline-block;
-  padding: 0.5rem 1rem;
+  padding: 0.45rem 1.1rem;
   border-radius: var(--radius-full);
   font-size: 0.875rem;
-  font-weight: 500;
+  font-weight: 600;
   margin-bottom: 1.5rem;
   color: var(--primary);
-  border-color: rgba(79, 70, 229, 0.3);
+  border: 1px solid rgba(79, 70, 229, 0.25);
+  background: rgba(79, 70, 229, 0.06);
+  letter-spacing: 0.02em;
 }
 
 [data-theme="dark"] .badge {
   color: var(--primary-light);
+  background: rgba(129, 140, 248, 0.1);
+  border-color: rgba(129, 140, 248, 0.25);
 }
 
 .hero-title {
-  font-size: 3.5rem;
-  margin-bottom: 1.5rem;
-  letter-spacing: -1px;
+  font-size: clamp(2.5rem, 6vw, 4rem);
+  margin-bottom: 1.25rem;
+  letter-spacing: -1.5px;
+  line-height: 1.1;
 }
 
 .hero-subtitle {
-  font-size: 1.25rem;
+  font-size: clamp(1rem, 2vw, 1.2rem);
   color: var(--text-muted);
   margin-bottom: 2.5rem;
+  line-height: 1.7;
+  max-width: 580px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
+/* Hero Action Buttons */
 .hero-actions {
   display: flex;
-  gap: 1rem;
+  gap: 0.85rem;
   justify-content: center;
   flex-wrap: wrap;
 }
 
+.hero-actions .btn-primary,
+.hero-actions .btn-secondary,
+.hero-actions .btn-tour {
+  padding: 0.8rem 1.5rem;
+  font-size: 0.95rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.btn-tour {
+  background: transparent;
+  border: 1.5px solid var(--primary);
+  color: var(--primary);
+  padding: 0.8rem 1.5rem;
+  border-radius: var(--radius-full);
+  font-weight: 600;
+  font-family: inherit;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: var(--transition);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.btn-tour:hover {
+  background: rgba(79, 70, 229, 0.08);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 14px rgba(79, 70, 229, 0.2);
+}
+
+/* Feature Cards */
 .hero-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 2rem;
-  margin-top: 2rem;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
 }
 
 .feature-card {
-  padding: 2rem;
+  padding: 1.75rem;
   cursor: pointer;
   text-align: left;
+  transition: var(--transition);
+}
+
+.feature-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 16px 40px rgba(79, 70, 229, 0.15);
+  border-color: rgba(79, 70, 229, 0.35);
 }
 
 .icon-wrapper {
-  width: 50px;
-  height: 50px;
-  border-radius: 12px;
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 1.5rem;
+  margin-bottom: 1.25rem;
   box-shadow: var(--shadow-md);
 }
 
 .bg-primary-light { background: var(--primary-light); }
-.bg-secondary { background: var(--secondary); }
-.bg-accent { background: var(--accent); }
+.bg-secondary     { background: var(--secondary); }
+.bg-accent        { background: var(--accent); }
 
 .feature-card h3 {
-  font-size: 1.25rem;
-  margin-bottom: 0.75rem;
-  color: var(--text-main);
+  font-size: 1.15rem;
+  margin-bottom: 0.6rem;
   background: none;
-  -webkit-text-fill-color: initial;
+  -webkit-text-fill-color: var(--text-main);
+  color: var(--text-main);
 }
 
 .feature-card p {
   color: var(--text-muted);
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   margin: 0;
+  line-height: 1.6;
 }
 
+/* Desktop Layout */
 @media (min-width: 992px) {
+  .home-page {
+    padding-top: 100px;
+  }
+
   .hero-section {
     grid-template-columns: 1fr 1fr;
     align-items: center;
-    text-align: left;
+    gap: 4rem;
   }
-  
+
   .hero-content {
     text-align: left;
     margin: 0;
+    max-width: 100%;
   }
-  
+
+  .hero-subtitle {
+    margin-left: 0;
+    margin-right: 0;
+  }
+
   .hero-actions {
     justify-content: flex-start;
   }
-  
+
   .hero-cards {
     grid-template-columns: 1fr;
+    gap: 1.25rem;
+  }
+}
+
+/* Mobile */
+@media (max-width: 480px) {
+  .home-page {
+    padding-top: 80px;
+    padding-bottom: 2rem;
+  }
+
+  .hero-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .hero-actions .btn-primary,
+  .hero-actions .btn-secondary,
+  .btn-tour {
+    justify-content: center;
+    width: 100%;
   }
 }

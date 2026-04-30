@@ -9,9 +9,8 @@ export const AppProvider = ({ children }) => {
   const [privacyMode, setPrivacyMode] = useState(false);
   const [aiGuideEnabled, setAiGuideEnabled] = useState(true);
   
-  // Auth State
-  const [user, setUser] = useState(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  // App-level state (theme, language, etc.)
+  // Auth state is managed separately in AuthContext
 
   // Walkthrough State
   const [isWalkthroughActive, setIsWalkthroughActive] = useState(false);
@@ -102,10 +101,6 @@ export const AppProvider = ({ children }) => {
         togglePrivacy,
         aiGuideEnabled,
         setAiGuideEnabled,
-        user,
-        setUser,
-        isAuthenticated,
-        setIsAuthenticated,
         isWalkthroughActive,
         setIsWalkthroughActive,
         currentStep,

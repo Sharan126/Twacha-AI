@@ -1,17 +1,27 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { User, Stethoscope, Mail, Lock, LogIn, UserPlus, Phone, Building, ShieldCheck, ArrowLeft } from 'lucide-react';
+import {
+  User, Stethoscope, Mail, Lock, LogIn, UserPlus,
+  Phone, Building, ShieldCheck, ArrowLeft, Eye, EyeOff,
+  AlertCircle, CheckCircle, Loader
+} from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
 import './Auth.css';
 
 const Auth = () => {
-  const { setIsAuthenticated, setUser } = useAppContext();
+  const { t, setIsWalkthroughActive } = useAppContext();
+  const { signUp, signIn, profile, isAuthenticated, markFirstLoginDone } = useAuth();
   const navigate = useNavigate();
 
-  const [activeRole, setActiveRole] = useState('user'); // 'user' | 'doctor'
-  const [authMode, setAuthMode] = useState('login'); // 'login' | 'register'
-  
+  const [activeRole, setActiveRole] = useState('user');
+  const [authMode, setAuthMode] = useState('register');
+  const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [apiError, setApiError] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
+
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -21,31 +31,35 @@ const Auth = () => {
     specialization: '',
     hospital: ''
   });
-  
   const [errors, setErrors] = useState({});
+
+  // If already authenticated, redirect
+  useEffect(() => {
+    if (isAuthenticated && profile) {
+      if (profile.role === 'doctor' && !profile.is_verified) return; // stay on page to show message
+      navigate('/');
+    }
+  }, [isAuthenticated, profile]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
-    // Clear error when user types
-    if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: '' }));
-    }
+    if (errors[name]) setErrors(prev => ({ ...prev, [name]: '' }));
+    if (apiError) setApiError('');
   };
 
   const validateForm = () => {
     const newErrors = {};
     if (!formData.email) newErrors.email = 'Email is required';
-    else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = 'Email address is invalid';
-    
+    else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = 'Invalid email address';
+
     if (!formData.password) newErrors.password = 'Password is required';
-    else if (formData.password.length < 6) newErrors.password = 'Password must be at least 6 characters';
+    else if (formData.password.length < 6) newErrors.password = 'At least 6 characters';
 
     if (authMode === 'register') {
+      if (!formData.name) newErrors.name = 'Full name is required';
       if (activeRole === 'doctor') {
-        if (!formData.name) newErrors.name = 'Full Name is required';
-        if (!formData.phone) newErrors.phone = 'Phone number is required';
-        if (!formData.regNumber) newErrors.regNumber = 'Medical Registration Number is required';
+        if (!formData.regNumber) newErrors.regNumber = 'Registration number is required';
         if (!formData.specialization) newErrors.specialization = 'Please select a specialization';
         if (!formData.hospital) newErrors.hospital = 'Hospital/Clinic name is required';
       }
@@ -55,94 +69,182 @@ const Auth = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (validateForm()) {
-      // Simulate API call
-      setIsAuthenticated(true);
-      setUser({
-        name: authMode === 'register' ? formData.name || (activeRole === 'doctor' ? 'Dr. Smith' : 'User') : (activeRole === 'doctor' ? 'Dr. Smith' : 'User'),
-        type: activeRole
+    if (!validateForm()) return;
+
+    setLoading(true);
+    setApiError('');
+    setSuccessMsg('');
+
+    if (authMode === 'register') {
+      const { data, error } = await signUp({
+        email: formData.email,
+        password: formData.password,
+        name: formData.name,
+        role: activeRole,
+        // Doctor extra fields — passed to step 2 update (not to auth.signUp)
+        specialization: formData.specialization,
+        regNumber: formData.regNumber,
+        clinicName: formData.hospital,
       });
-      navigate('/');
+
+      if (error) {
+        setApiError(error.message);
+      } else {
+        setSuccessMsg(
+          activeRole === 'doctor'
+            ? 'Account created! Check your email to verify your address. Your account will be reviewed before activation.'
+            : 'Account created! Please check your email to verify your address, then log in.'
+        );
+        setAuthMode('login');
+      }
+    } else {
+      // Login
+      const { data, error } = await signIn({
+        email: formData.email,
+        password: formData.password,
+      });
+
+      if (error) {
+        setApiError(error.message);
+      }
+      // Navigation handled by useEffect watching isAuthenticated + profile
     }
+
+    setLoading(false);
   };
+
+  // After login, handle first-time tour + doctor verification block
+  if (isAuthenticated && profile) {
+    if (profile.role === 'doctor' && !profile.is_verified) {
+      return (
+        <div className="auth-page-wrapper">
+          <div className="auth-container">
+            <motion.div
+              className="auth-card glass"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+            >
+              <div className="verification-pending">
+                <div className="verify-icon">
+                  <ShieldCheck size={48} />
+                </div>
+                <h2>Account Under Verification</h2>
+                <p className="text-muted">
+                  Your doctor account is currently being reviewed by our team.
+                  This usually takes 1–2 business days. You'll receive an email once your account is approved.
+                </p>
+                <div className="verify-details glass-card">
+                  <p><strong>Name:</strong> {profile.name}</p>
+                  <p><strong>Specialization:</strong> {profile.specialization}</p>
+                  <p><strong>Reg. Number:</strong> {profile.registration_number}</p>
+                </div>
+                <button
+                  className="btn-secondary full-width"
+                  onClick={() => { signOut && navigate('/'); }}
+                  style={{ marginTop: '1.5rem' }}
+                >
+                  Back to Home
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        </div>
+      );
+    }
+
+    // First-time login — trigger walkthrough
+    if (profile.is_first_login) {
+      markFirstLoginDone();
+      setIsWalkthroughActive(true);
+      navigate('/');
+      return null;
+    }
+  }
 
   const toggleMode = () => {
     setAuthMode(prev => prev === 'login' ? 'register' : 'login');
     setErrors({});
+    setApiError('');
+    setSuccessMsg('');
   };
 
-  // Animation variants for sliding tabs
   const tabVariants = {
-    enter: (direction) => ({
-      x: direction > 0 ? 300 : -300,
-      opacity: 0
-    }),
-    center: {
-      x: 0,
-      opacity: 1
-    },
-    exit: (direction) => ({
-      x: direction < 0 ? 300 : -300,
-      opacity: 0
-    })
+    enter: (direction) => ({ x: direction > 0 ? 300 : -300, opacity: 0 }),
+    center: { x: 0, opacity: 1 },
+    exit: (direction) => ({ x: direction < 0 ? 300 : -300, opacity: 0 })
   };
 
-  // Direction depends on the active role for the slide animation
   const direction = activeRole === 'user' ? -1 : 1;
 
   return (
     <div className="auth-page-wrapper">
       <button className="back-btn glass" onClick={() => navigate('/')}>
-        <ArrowLeft size={20} /> Back to Home
+        <ArrowLeft size={20} /> {t('auth.backToHome')}
       </button>
 
       <div className="auth-container">
-        <motion.div 
+        <motion.div
           className="auth-card glass"
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
+          transition={{ duration: 0.4 }}
         >
           <div className="auth-header">
-            <h2>{authMode === 'login' ? 'Welcome Back' : 'Create an Account'}</h2>
+            <h2>{authMode === 'login' ? t('auth.welcomeBack') : t('auth.createAccount')}</h2>
             <p className="text-muted">
-              {authMode === 'login' 
-                ? 'Sign in to access your Twacha AI dashboard' 
-                : 'Join Twacha AI to get started'}
+              {authMode === 'login' ? t('auth.signInSubtitle') : t('auth.registerSubtitle')}
             </p>
           </div>
 
-          {/* Role Toggle Tabs */}
+          {/* Role Toggle */}
           <div className="role-tabs">
-            <div 
+            <div
               className={`tab ${activeRole === 'user' ? 'active' : ''}`}
-              onClick={() => { setActiveRole('user'); setErrors({}); }}
+              onClick={() => { setActiveRole('user'); setErrors({}); setApiError(''); }}
             >
-              <User size={18} /> User
+              <User size={18} /> {t('auth.user')}
             </div>
-            <div 
+            <div
               className={`tab ${activeRole === 'doctor' ? 'active' : ''}`}
-              onClick={() => { setActiveRole('doctor'); setErrors({}); }}
+              onClick={() => { setActiveRole('doctor'); setErrors({}); setApiError(''); }}
             >
-              <Stethoscope size={18} /> Doctor
+              <Stethoscope size={18} /> {t('auth.doctor')}
             </div>
-            <motion.div 
+            <motion.div
               className="tab-indicator"
               layout
               initial={false}
-              animate={{
-                left: activeRole === 'user' ? '4px' : 'calc(50% + 2px)',
-                width: 'calc(50% - 6px)'
-              }}
-              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              animate={{ left: activeRole === 'user' ? '4px' : 'calc(50% + 2px)', width: 'calc(50% - 6px)' }}
+              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
             />
           </div>
 
+          {/* API Error / Success Banner */}
+          {apiError && (
+            <motion.div
+              className="auth-alert error"
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+            >
+              <AlertCircle size={16} /> {apiError}
+            </motion.div>
+          )}
+          {successMsg && (
+            <motion.div
+              className="auth-alert success"
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+            >
+              <CheckCircle size={16} /> {successMsg}
+            </motion.div>
+          )}
+
+          {/* Form */}
           <div className="auth-form-container">
             <AnimatePresence custom={direction} mode="wait">
-              <motion.form 
+              <motion.form
                 key={activeRole + authMode}
                 className="auth-form"
                 custom={direction}
@@ -150,20 +252,30 @@ const Auth = () => {
                 initial="enter"
                 animate="center"
                 exit="exit"
-                transition={{ duration: 0.3 }}
+                transition={{ duration: 0.25 }}
                 onSubmit={handleSubmit}
               >
+                {/* Register: Name field (both roles) */}
+                {authMode === 'register' && (
+                  <div className="form-group">
+                    <label>Full Name</label>
+                    <div className={`input-with-icon ${errors.name ? 'has-error' : ''}`}>
+                      <User size={18} className="input-icon" />
+                      <input
+                        type="text"
+                        name="name"
+                        placeholder={activeRole === 'doctor' ? 'Dr. John Doe' : 'Jane Doe'}
+                        value={formData.name}
+                        onChange={handleInputChange}
+                      />
+                    </div>
+                    {errors.name && <span className="error-text">{errors.name}</span>}
+                  </div>
+                )}
+
+                {/* Doctor-specific register fields */}
                 {authMode === 'register' && activeRole === 'doctor' && (
                   <>
-                    <div className="form-group">
-                      <label>Full Name</label>
-                      <div className={`input-with-icon ${errors.name ? 'has-error' : ''}`}>
-                        <User size={18} className="input-icon" />
-                        <input type="text" name="name" placeholder="Dr. John Doe" value={formData.name} onChange={handleInputChange} />
-                      </div>
-                      {errors.name && <span className="error-text">{errors.name}</span>}
-                    </div>
-
                     <div className="form-group">
                       <label>Phone Number</label>
                       <div className={`input-with-icon ${errors.phone ? 'has-error' : ''}`}>
@@ -207,8 +319,9 @@ const Auth = () => {
                   </>
                 )}
 
+                {/* Email */}
                 <div className="form-group">
-                  <label>{authMode === 'login' ? 'Email / Phone' : 'Email Address'}</label>
+                  <label>{authMode === 'login' ? t('auth.emailPhone') : t('auth.email')}</label>
                   <div className={`input-with-icon ${errors.email ? 'has-error' : ''}`}>
                     <Mail size={18} className="input-icon" />
                     <input type="text" name="email" placeholder="john@example.com" value={formData.email} onChange={handleInputChange} />
@@ -216,33 +329,58 @@ const Auth = () => {
                   {errors.email && <span className="error-text">{errors.email}</span>}
                 </div>
 
+                {/* Password */}
                 <div className="form-group">
-                  <label>Password</label>
+                  <label>{t('auth.password')}</label>
                   <div className={`input-with-icon ${errors.password ? 'has-error' : ''}`}>
                     <Lock size={18} className="input-icon" />
-                    <input type="password" name="password" placeholder="••••••••" value={formData.password} onChange={handleInputChange} />
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      name="password"
+                      placeholder="••••••••"
+                      value={formData.password}
+                      onChange={handleInputChange}
+                    />
+                    <button
+                      type="button"
+                      className="password-toggle"
+                      onClick={() => setShowPassword(p => !p)}
+                      tabIndex={-1}
+                    >
+                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
                   </div>
                   {errors.password && <span className="error-text">{errors.password}</span>}
                 </div>
 
                 {authMode === 'login' && (
                   <div className="auth-helpers flex-between">
-                    <label className="flex-center gap-sm">
-                      <input type="checkbox" /> Remember me
+                    <label className="flex-center gap-sm" style={{ gap: '0.4rem' }}>
+                      <input type="checkbox" /> {t('auth.rememberMe')}
                     </label>
-                    <a href="#" className="text-primary text-sm font-medium">Forgot password?</a>
+                    <a href="#" className="text-primary text-sm font-medium">{t('auth.forgotPassword')}</a>
                   </div>
                 )}
 
                 {authMode === 'register' && activeRole === 'doctor' && (
                   <div className="doctor-verification-note glass-card bg-warning-light">
                     <ShieldCheck size={20} className="text-warning" />
-                    <p className="text-sm">Doctor accounts will be verified by our team before activation. Please ensure your registration details are accurate.</p>
+                    <p className="text-sm">Doctor accounts are manually verified before activation. Ensure all details are accurate.</p>
                   </div>
                 )}
 
-                <button type="submit" className="btn-primary full-width flex-center mt-1" style={{ gap: '0.5rem', height: '48px' }}>
-                  {authMode === 'login' ? <><LogIn size={18} /> Login</> : <><UserPlus size={18} /> Register as {activeRole === 'doctor' ? 'Doctor' : 'User'}</>}
+                <button
+                  type="submit"
+                  className="btn-primary full-width flex-center mt-1"
+                  style={{ gap: '0.5rem', height: '48px' }}
+                  disabled={loading}
+                >
+                  {loading
+                    ? <><Loader size={18} className="spin" /> Processing...</>
+                    : authMode === 'login'
+                      ? <><LogIn size={18} /> {t('auth.login')}</>
+                      : <><UserPlus size={18} /> {t('auth.registerAs')} {activeRole === 'doctor' ? t('auth.doctor') : t('auth.user')}</>
+                  }
                 </button>
               </motion.form>
             </AnimatePresence>
@@ -250,18 +388,18 @@ const Auth = () => {
 
           <div className="auth-footer text-center mt-2">
             <p className="text-muted text-sm">
-              {authMode === 'login' ? "Don't have an account? " : "Already have an account? "}
+              {authMode === 'login' ? t('auth.noAccount') : t('auth.haveAccount')}{' '}
               <button type="button" className="text-primary font-medium btn-link" onClick={toggleMode}>
-                {authMode === 'login' ? 'Sign up here' : 'Login here'}
+                {authMode === 'login' ? t('auth.signUpHere') : t('auth.loginHere')}
               </button>
             </p>
 
             {authMode === 'login' && activeRole === 'user' && (
               <div className="social-login mt-2">
-                <div className="divider"><span>Or continue with</span></div>
+                <div className="divider"><span>{t('auth.orContinueWith')}</span></div>
                 <button type="button" className="btn-secondary full-width flex-center mt-1">
-                  <img src="https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg" alt="Google" width="18" height="18" style={{marginRight: '8px'}} />
-                  Google Login
+                  <img src="https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg" alt="Google" width="18" height="18" style={{ marginRight: '8px' }} />
+                  {t('auth.googleLogin')}
                 </button>
               </div>
             )}
