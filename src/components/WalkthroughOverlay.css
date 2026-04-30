@@ -1,0 +1,116 @@
+.walkthrough-overlay-backdrop {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  pointer-events: none; /* Let clicks pass through backdrop to the app so they can see highlights */
+  z-index: 9998;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  padding-bottom: 2rem;
+}
+
+.walkthrough-panel {
+  width: 90%;
+  max-width: 600px;
+  background: var(--surface-glass);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+  padding: 1.5rem;
+  pointer-events: auto; /* Re-enable pointer events for the panel */
+  position: relative;
+}
+
+.tour-close-btn {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(128, 128, 128, 0.1);
+  color: var(--text-muted);
+  transition: var(--transition);
+}
+
+.tour-close-btn:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--danger);
+}
+
+.tour-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  padding-right: 2rem;
+}
+
+.tour-header h3 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.tour-progress {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--primary);
+  background: rgba(79, 70, 229, 0.1);
+  padding: 0.25rem 0.75rem;
+  border-radius: var(--radius-full);
+}
+
+.tour-subtitle-box {
+  padding: 1.5rem;
+  min-height: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  border-left: 4px solid var(--primary);
+  background: var(--surface);
+  margin-bottom: 1.5rem;
+}
+
+.tour-subtitle-text {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 500;
+  color: var(--text-main);
+  line-height: 1.6;
+}
+
+.tour-controls {
+  align-items: center;
+}
+
+.tour-play-btn {
+  width: 56px;
+  height: 56px;
+  margin: 0 1rem;
+  box-shadow: var(--shadow-md);
+}
+
+.tour-play-btn:hover {
+  transform: scale(1.05);
+  background: var(--primary) !important;
+}
+
+.skip-btn {
+  font-size: 0.85rem;
+  padding: 0.5rem 1rem;
+  background: transparent;
+  border: 1px solid var(--border-glass);
+}
+
+.skip-btn:hover {
+  background: rgba(239, 68, 68, 0.05);
+  color: var(--danger);
+  border-color: var(--danger);
+}

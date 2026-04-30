@@ -1,0 +1,135 @@
+.tips-page {
+  padding-top: 100px;
+  min-height: 100vh;
+  max-width: 800px !important;
+}
+
+.tips-header {
+  margin-bottom: 3rem;
+}
+
+.personalized-insight {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 1.5rem;
+  margin-bottom: 3rem;
+  background: linear-gradient(to right, rgba(79, 70, 229, 0.05), rgba(6, 182, 212, 0.05));
+  border-left: 4px solid var(--primary);
+}
+
+.insight-icon {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.insight-content h4 {
+  font-size: 1rem;
+}
+
+/* Tabs */
+.tips-tabs {
+  background: var(--surface-glass);
+  backdrop-filter: blur(10px);
+  padding: 0.5rem;
+  border-radius: var(--radius-full);
+  margin-bottom: 2rem;
+  border: 1px solid var(--border-glass);
+  gap: 0.5rem;
+}
+
+.tips-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-full);
+  font-weight: 500;
+  color: var(--text-muted);
+  transition: var(--transition);
+}
+
+.tips-tab:hover {
+  color: var(--text-main);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.tips-tab.active {
+  background: var(--primary);
+  color: white;
+  box-shadow: var(--shadow-sm);
+}
+
+.capitalize {
+  text-transform: capitalize;
+}
+
+/* Tip Cards */
+.tips-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 4rem;
+}
+
+.tip-card {
+  padding: 1.5rem;
+  cursor: pointer;
+  border: 1px solid var(--border-glass);
+}
+
+.tip-card:hover {
+  border-color: rgba(79, 70, 229, 0.3);
+}
+
+.tip-card.expanded {
+  border-color: var(--primary);
+  box-shadow: 0 4px 20px rgba(79, 70, 229, 0.1);
+}
+
+.tip-card-header {
+  align-items: flex-start;
+}
+
+.tip-short {
+  margin-right: 2rem;
+}
+
+.detail-divider {
+  height: 1px;
+  width: 100%;
+  background: var(--border-glass);
+  margin: 1rem 0;
+}
+
+.line-height-relaxed {
+  line-height: 1.7;
+}
+
+@media (max-width: 600px) {
+  .personalized-insight {
+    flex-direction: column;
+    text-align: center;
+    gap: 1rem;
+  }
+  
+  .insight-content h4 {
+    justify-content: center !important;
+  }
+  
+  .tips-tabs {
+    flex-direction: column;
+    border-radius: var(--radius-md);
+  }
+  
+  .tips-tab {
+    width: 100%;
+  }
+}

@@ -1,0 +1,302 @@
+/* =============================================
+   Doctor Feedback Modal Styles
+   ============================================= */
+
+   .dfb-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.7);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    z-index: 9000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+  }
+  
+  .dfb-modal {
+    background: var(--surface-glass);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--border-glass);
+    box-shadow: 0 24px 60px rgba(79, 70, 229, 0.18), 0 8px 32px rgba(0,0,0,0.12);
+    border-radius: 1.5rem;
+    width: 100%;
+    max-width: 520px;
+    max-height: 90vh;
+    overflow-y: auto;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .dfb-header-bg {
+    background: linear-gradient(135deg, rgba(79, 70, 229, 0.1), rgba(6, 182, 212, 0.1));
+    padding: 2rem 2rem 1.5rem;
+    position: relative;
+    border-bottom: 1px solid var(--border-glass);
+  }
+  
+  .dfb-close-btn {
+    position: absolute;
+    top: 1.25rem;
+    right: 1.25rem;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--surface);
+    border: 1px solid var(--border-glass);
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: var(--transition);
+    z-index: 2;
+  }
+  
+  .dfb-close-btn:hover {
+    background: var(--danger);
+    color: white;
+    border-color: var(--danger);
+    transform: rotate(90deg);
+  }
+  
+  .dfb-doc-profile {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+  }
+  
+  .dfb-doc-img {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid var(--surface);
+    box-shadow: var(--shadow-md);
+  }
+  
+  .dfb-doc-info h3 {
+    margin-bottom: 0.25rem;
+    font-size: 1.4rem;
+  }
+  
+  .dfb-doc-info p {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  
+  .dfb-badge {
+    background: rgba(79, 70, 229, 0.1);
+    color: var(--primary);
+    padding: 0.15rem 0.6rem;
+    border-radius: var(--radius-full);
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+  
+  .dfb-body {
+    padding: 2rem;
+    flex: 1;
+  }
+  
+  /* Overall Rating */
+  .dfb-overall {
+    text-align: center;
+    margin-bottom: 2rem;
+  }
+  
+  .dfb-overall p {
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    color: var(--text-main);
+  }
+  
+  .dfb-stars-large {
+    display: flex;
+    justify-content: center;
+    gap: 0.5rem;
+  }
+  
+  .dfb-star-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    color: #D1D5DB;
+    transition: transform 0.15s ease, color 0.15s ease;
+  }
+  
+  .dfb-star-btn:hover {
+    transform: scale(1.15);
+  }
+  
+  .dfb-star-btn.filled {
+    color: #F59E0B;
+  }
+  
+  .dfb-star-btn.hovered {
+    color: #FBBF24;
+  }
+  
+  /* Category Ratings */
+  .dfb-categories {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-md);
+    padding: 1.25rem;
+    margin-bottom: 1.5rem;
+  }
+  
+  .dfb-category-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  }
+  
+  [data-theme="dark"] .dfb-category-row {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  }
+  
+  .dfb-category-row:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+  }
+  
+  .dfb-category-row:first-child {
+    padding-top: 0;
+  }
+  
+  .dfb-cat-label {
+    font-size: 0.9rem;
+    font-weight: 500;
+  }
+  
+  .dfb-stars-small {
+    display: flex;
+    gap: 0.25rem;
+  }
+  
+  /* Textarea */
+  .dfb-textarea-wrap {
+    margin-bottom: 1.5rem;
+  }
+  
+  .dfb-label {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.6rem;
+  }
+  
+  .dfb-textarea {
+    width: 100%;
+    background: var(--surface);
+    border: 1.5px solid var(--border-glass);
+    border-radius: var(--radius-sm);
+    color: var(--text-main);
+    padding: 0.85rem 1rem;
+    font-size: 0.95rem;
+    font-family: inherit;
+    resize: vertical;
+    min-height: 100px;
+    transition: var(--transition);
+  }
+  
+  .dfb-textarea:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2);
+    outline: none;
+  }
+  
+  /* Recommend Toggle */
+  .dfb-recommend {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--surface);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-sm);
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  
+  .dfb-recommend-label {
+    font-weight: 500;
+    font-size: 0.95rem;
+  }
+  
+  .dfb-toggles {
+    display: flex;
+    gap: 0.5rem;
+  }
+  
+  .dfb-toggle-btn {
+    padding: 0.4rem 1.2rem;
+    border-radius: var(--radius-full);
+    border: 1px solid var(--border-glass);
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-muted);
+    font-weight: 600;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: var(--transition);
+  }
+  
+  .dfb-toggle-btn.yes.active {
+    background: rgba(16, 185, 129, 0.15);
+    color: var(--success);
+    border-color: var(--success);
+  }
+  
+  .dfb-toggle-btn.no.active {
+    background: rgba(239, 68, 68, 0.15);
+    color: var(--danger);
+    border-color: var(--danger);
+  }
+  
+  /* Submit */
+  .dfb-submit-btn {
+    width: 100%;
+    background: linear-gradient(135deg, var(--primary), var(--accent));
+    color: white;
+    padding: 0.9rem 1.5rem;
+    border-radius: var(--radius-full);
+    font-weight: 600;
+    font-size: 1.05rem;
+    font-family: inherit;
+    cursor: pointer;
+    border: none;
+    transition: var(--transition);
+    box-shadow: 0 4px 14px rgba(79, 70, 229, 0.4);
+  }
+  
+  .dfb-submit-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(79, 70, 229, 0.5);
+  }
+  
+  .dfb-submit-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  
+  @media (max-width: 520px) {
+    .dfb-header-bg {
+      padding: 1.5rem;
+    }
+    .dfb-body {
+      padding: 1.5rem;
+    }
+  }

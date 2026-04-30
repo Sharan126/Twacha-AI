@@ -1,0 +1,242 @@
+.scan-page {
+  padding-top: 100px;
+  min-height: 100vh;
+}
+
+.scan-header {
+  text-align: center;
+  margin-bottom: 3rem;
+}
+
+.scan-header p {
+  color: var(--text-muted);
+}
+
+.scan-content {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+/* Upload Area */
+.upload-area {
+  padding: 4rem 2rem;
+  text-align: center;
+  border: 2px dashed var(--primary-light);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.upload-icons {
+  background: rgba(79, 70, 229, 0.1);
+  padding: 1.5rem;
+  border-radius: 50%;
+  margin-bottom: 1rem;
+}
+
+.upload-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
+.upload-actions label {
+  cursor: pointer;
+}
+
+/* Preview Area */
+.preview-area {
+  padding: 2rem;
+  text-align: center;
+}
+
+.image-container {
+  position: relative;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  max-width: 500px;
+  margin: 0 auto 2rem;
+  box-shadow: var(--shadow-md);
+  border: 1px solid var(--border-glass);
+}
+
+.preview-image {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.scanner-line {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 4px;
+  background: var(--primary);
+  box-shadow: 0 0 15px var(--primary), 0 0 30px var(--primary);
+  animation: scan 2s linear infinite alternate;
+  z-index: 10;
+}
+
+@keyframes scan {
+  0% { top: 0; }
+  100% { top: 100%; }
+}
+
+.scanning-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 5;
+}
+
+[data-theme="dark"] .scanning-overlay {
+  background: rgba(15, 23, 42, 0.6);
+}
+
+.spinner {
+  animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
+}
+
+@keyframes spin {
+  100% { transform: rotate(360deg); }
+}
+
+.preview-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+}
+
+/* Results Area */
+.results-area {
+  padding: 2rem;
+}
+
+.results-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2rem;
+}
+
+@media (min-width: 768px) {
+  .results-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.result-image-col {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  align-items: center;
+}
+
+.result-image-container {
+  position: relative;
+  width: 100%;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 1px solid var(--border-glass);
+}
+
+.result-image {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.heatmap-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle at 50% 50%, rgba(239, 68, 68, 0.6) 0%, rgba(239, 68, 68, 0) 70%);
+  mix-blend-mode: multiply;
+  opacity: 0.8;
+}
+
+[data-theme="dark"] .heatmap-overlay {
+  mix-blend-mode: screen;
+}
+
+.heatmap-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.result-details-col {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.disease-name {
+  font-size: 2rem;
+  margin: 0;
+}
+
+.confidence-meter {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.confidence-circle {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: conic-gradient(var(--primary) var(--percent), transparent 0);
+  padding: 8px;
+}
+
+.confidence-circle::before {
+  content: "";
+  position: absolute;
+  inset: 10px;
+  border-radius: 50%;
+  background: var(--surface);
+  z-index: 1;
+}
+
+.confidence-value, .confidence-label {
+  position: relative;
+  z-index: 2;
+}
+
+.confidence-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.confidence-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.chat-explanation {
+  padding: 1.5rem;
+  border-left: 4px solid var(--primary);
+}
+
+.result-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1rem;
+}
