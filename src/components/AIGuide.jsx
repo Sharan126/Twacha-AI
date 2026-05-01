@@ -178,7 +178,7 @@ const AIGuide = () => {
     try {
       const history = buildHistory();
 
-      const res = await fetch('/api/ai-stream', {
+      const res = await fetch('https://twacha-ai.onrender.com/api/ai-stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: userText, history, language: i18n.language }),
