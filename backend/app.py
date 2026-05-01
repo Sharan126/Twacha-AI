@@ -517,8 +517,8 @@ if __name__ == "__main__":
     # debug=True enables hot reload during development
     # host='0.0.0.0' makes the server accessible on the local network
     # port=5000 is the default Flask port
+    port = int(os.environ.get("PORT",5000))
     app.run(
         host="0.0.0.0",
-        port=5000,
-        debug=True
+        port=port
     )
