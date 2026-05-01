@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: twacha-ai
+    env: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: python app.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.10.13
