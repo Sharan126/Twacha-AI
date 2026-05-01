@@ -68,7 +68,7 @@ const Scan = () => {
 
     try {
       // [API CALL EXPLANATION]
-      // We use fetch API to send the image to our Flask backend running on localhost:5000.
+      // We use fetch API to send the image to our Flask backend running on Render.
       // The image is packed into a FormData object under the key "file".
       // The backend processes this image and returns a JSON response containing the prediction and Grad-CAM image.
       const formData = new FormData();
@@ -79,7 +79,7 @@ const Scan = () => {
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token || '';
 
-      const response = await fetch('http://localhost:5000/predict', {
+      const response = await fetch('https://twacha-ai.onrender.com/predict', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -151,7 +151,7 @@ const Scan = () => {
         disease: t('scan.analysisError', { defaultValue: 'Analysis Error' }),
         confidence: '0',
         allPredictions: [],
-        explanation: `API Error: ${flaskErr.message}. Please make sure the Flask backend is running on port 5000.`,
+        explanation: `API Error: ${flaskErr.message}. Please make sure the Flask backend is running on Render.`,
         heatmapBase64: null,
       });
       setIsScanning(false);

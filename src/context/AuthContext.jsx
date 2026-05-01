@@ -33,7 +33,7 @@ export const AuthProvider = ({ children }) => {
       email,
       password,
       options: {
-        data: { name, role }
+        data: { name, full_name: name, role }
       }
     });
     return { data, error };
@@ -79,17 +79,27 @@ export const AuthProvider = ({ children }) => {
   // -----------------------------------------
   useEffect(() => {
     // Get initial session
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
+    const initSession = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error) throw error;
+        
+        setSession(session);
+        setUser(session?.user ?? null);
 
-      if (session?.user) {
-        const prof = await fetchProfile(session.user.id);
-        setProfile(prof);
-        setRole(prof?.role ?? null);
+        if (session?.user) {
+          const prof = await fetchProfile(session.user.id);
+          setProfile(prof);
+          setRole(prof?.role ?? null);
+        }
+      } catch (err) {
+        console.error('Error getting session:', err);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
-    });
+    };
+
+    initSession();
 
     // Listen for auth state changes (login, logout, token refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
