@@ -26,38 +26,27 @@ export const AuthProvider = ({ children }) => {
   };
 
   // -----------------------------------------
-  //   Send OTP
+  //   Sign Up
   // -----------------------------------------
-  const sendOtp = async (phone) => {
-    const { data, error } = await supabase.auth.signInWithOtp({ phone });
-    return { data, error };
-  };
-
-  // -----------------------------------------
-  //   Verify OTP
-  // -----------------------------------------
-  const verifyOtp = async (phone, token) => {
-    const { data, error } = await supabase.auth.verifyOtp({
-      phone,
-      token,
-      type: 'sms'
+  const signUp = async ({ email, password, name, role }) => {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { name, role }
+      }
     });
     return { data, error };
   };
 
   // -----------------------------------------
-  //   Update Profile (Role & Name for new users)
+  //   Login
   // -----------------------------------------
-  const completeProfile = async (userId, profileData) => {
-    // Upsert the profile record
-    const { data, error } = await supabase
-      .from('profiles')
-      .upsert({ id: userId, ...profileData });
-      
-    if (!error) {
-      setProfile(prev => ({ ...prev, ...profileData }));
-      setRole(profileData.role);
-    }
+  const signIn = async ({ email, password }) => {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password
+    });
     return { data, error };
   };
 
@@ -134,9 +123,8 @@ export const AuthProvider = ({ children }) => {
         role,
         loading,
         isAuthenticated,
-        sendOtp,
-        verifyOtp,
-        completeProfile,
+        signUp,
+        signIn,
         logout,
         markFirstLoginDone,
       }}

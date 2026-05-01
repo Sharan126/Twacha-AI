@@ -40,12 +40,12 @@ function App() {
                   <Route path="/doctor-dashboard" element={<ProtectedRoute allowedRoles={['doctor']}><DoctorDashboard /></ProtectedRoute>} />
                   
                   {/* Patient Only Routes */}
-                  <Route path="/patient-dashboard" element={<ProtectedRoute allowedRoles={['patient']}><PatientDashboard /></ProtectedRoute>} />
-                  <Route path="/scan" element={<ProtectedRoute allowedRoles={['patient']}><Scan /></ProtectedRoute>} />
-                  <Route path="/doctors" element={<ProtectedRoute allowedRoles={['patient']}><Doctors /></ProtectedRoute>} />
-                  <Route path="/history" element={<ProtectedRoute allowedRoles={['patient']}><History /></ProtectedRoute>} />
-                  <Route path="/records" element={<ProtectedRoute allowedRoles={['patient']}><Records /></ProtectedRoute>} />
-                  <Route path="/medications" element={<ProtectedRoute allowedRoles={['patient']}><Medications /></ProtectedRoute>} />
+                  <Route path="/patient-dashboard" element={<ProtectedRoute allowedRoles={['user']}><PatientDashboard /></ProtectedRoute>} />
+                  <Route path="/scan" element={<ProtectedRoute allowedRoles={['user']}><Scan /></ProtectedRoute>} />
+                  <Route path="/doctors" element={<ProtectedRoute allowedRoles={['user']}><Doctors /></ProtectedRoute>} />
+                  <Route path="/history" element={<ProtectedRoute allowedRoles={['user']}><History /></ProtectedRoute>} />
+                  <Route path="/records" element={<ProtectedRoute allowedRoles={['user']}><Records /></ProtectedRoute>} />
+                  <Route path="/medications" element={<ProtectedRoute allowedRoles={['user']}><Medications /></ProtectedRoute>} />
                   
                   {/* Common Protected Routes */}
                   <Route path="/tips" element={<ProtectedRoute><Tips /></ProtectedRoute>} />
