@@ -1,193 +1,189 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
-import * as tf from '@tensorflow/tfjs';
+import React, { useState, useRef, useCallback } from 'react';
 import Webcam from 'react-webcam';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  UploadCloud, Camera, Image as ImageIcon,
-  Activity, RefreshCw, StopCircle, Play, AlertTriangle
+  UploadCloud, Camera, Activity, RefreshCw, StopCircle, Play, AlertTriangle, Download
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import { useAuth } from '../context/AuthContext';
+import { supabase } from '../config/supabaseClient';
 import './Scan.css';
-
-// Model files served from /public root
-const MODEL_JSON_URL = '/model.json';
-const METADATA_URL = '/metadata.json';
 
 const Scan = () => {
   const navigate = useNavigate();
+  const { t, i18n } = useTranslation();
+  const { profile } = useAuth();
+
+  const getSeverity = (conf) => {
+    if (conf >= 80) return 'high';
+    if (conf >= 50) return 'medium';
+    return 'low';
+  };
 
   // ── Tab state ──────────────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState('upload');
 
-  // ── Model state ────────────────────────────────────────────────────────────
-  const [modelReady, setModelReady] = useState(false);
-  const [modelError, setModelError] = useState('');
-  const tfModelRef = useRef(null);   // { model, labels }
-
   // ── Upload tab state ───────────────────────────────────────────────────────
-  const [image, setImage] = useState(null);
-  const [isScanning, setIsScanning] = useState(false);
-  const [result, setResult] = useState(null);
-  const [showHeatmap, setShowHeatmap] = useState(false);
+  const [image,       setImage]       = useState(null);  // object URL for preview
+  const [imageFile,   setImageFile]   = useState(null);  // raw File → sent to Flask
+  const [isScanning,  setIsScanning]  = useState(false);
+  const [result,      setResult]      = useState(null);
 
   // ── Webcam tab state ───────────────────────────────────────────────────────
   const [camRunning, setCamRunning] = useState(false);
   const [camError, setCamError] = useState('');
-  const [livePredictions, setLivePredictions] = useState([]);
   const webcamRef = useRef(null);
-  const rafRef = useRef(null);
 
   // ═══════════════════════════════════════════════════════════════════════════
-  //  LOAD MODEL (once on mount)
-  // ═══════════════════════════════════════════════════════════════════════════
-  useEffect(() => {
-    const loadModel = async () => {
-      try {
-        const [loadedModel, metaRes] = await Promise.all([
-          tf.loadLayersModel(MODEL_JSON_URL),
-          fetch(METADATA_URL),
-        ]);
-        const meta = await metaRes.json();
-        tfModelRef.current = { model: loadedModel, labels: meta.labels };
-        setModelReady(true);
-        console.log('✅ TF model loaded — classes:', meta.labels);
-      } catch (err) {
-        console.error('Model load error:', err);
-        setModelError(`Failed to load model: ${err.message}`);
-      }
-    };
-    loadModel();
-  }, []);
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  //  PREDICTION HELPER (shared by upload + webcam)
-  // ═══════════════════════════════════════════════════════════════════════════
-  const runPrediction = useCallback((inputElement) => {
-    if (!tfModelRef.current) return null;
-    const { model, labels } = tfModelRef.current;
-
-    const tensor = tf.tidy(() =>
-      tf.browser.fromPixels(inputElement)
-        .resizeNearestNeighbor([224, 224])
-        .toFloat()
-        .div(255.0)
-        .expandDims()
-    );
-
-    return model.predict(tensor).data().then((predictionData) => {
-      tensor.dispose();
-      return labels.map((className, i) => ({
-        className,
-        probability: predictionData[i],
-      }));
-    });
-  }, []);
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  //  UPLOAD TAB — handlers
+  //  UPLOAD TAB — file handlers
   // ═══════════════════════════════════════════════════════════════════════════
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
-    if (file) { setImage(URL.createObjectURL(file)); setResult(null); }
+    if (file) {
+      setImage(URL.createObjectURL(file));
+      setImageFile(file);   
+      setResult(null);
+    }
   };
 
   const handleDrop = (e) => {
     e.preventDefault();
     const file = e.dataTransfer.files[0];
-    if (file) { setImage(URL.createObjectURL(file)); setResult(null); }
+    if (file) {
+      setImage(URL.createObjectURL(file));
+      setImageFile(file);
+      setResult(null);
+    }
   };
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  startScan()
+  //  PRIMARY  : POST image to Flask /predict → get class + confidence + Grad-CAM + Report
+  // ═══════════════════════════════════════════════════════════════════════════
   const startScan = async () => {
-    if (!image || !modelReady) return;
+    if (!imageFile) return;
     setIsScanning(true);
     setResult(null);
 
     try {
-      const imgEl = document.getElementById('preview-img-el');
-      const allPredictions = await runPrediction(imgEl);
-      if (!allPredictions) throw new Error('Model not loaded');
+      // [API CALL EXPLANATION]
+      // We use fetch API to send the image to our Flask backend running on localhost:5000.
+      // The image is packed into a FormData object under the key "file".
+      // The backend processes this image and returns a JSON response containing the prediction and Grad-CAM image.
+      const formData = new FormData();
+      formData.append('file', imageFile);  // key: "file"
+      formData.append('language', i18n.language);
 
-      const best = allPredictions.reduce((a, b) =>
-        a.probability > b.probability ? a : b
-      );
+      // Get current session token for protected backend route
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token || '';
 
-      setResult({
-        disease: best.className,
-        confidence: (best.probability * 100).toFixed(1),
-        allPredictions,
-        explanation: `AI analysis identified this as "${best.className}" with ${
-          (best.probability * 100).toFixed(1)
-        }% confidence. This is an AI-assisted result — please consult a certified dermatologist for a medical diagnosis.`,
+      const response = await fetch('http://localhost:5000/predict', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData,
+        // Do NOT set Content-Type manually — browser sets boundary automatically
       });
-    } catch (err) {
-      setResult({
-        disease: 'Analysis Error',
-        confidence: '0',
-        allPredictions: [],
-        explanation: `Scan failed: ${err.message}. Ensure model.json, metadata.json, and weights.bin are in /public.`,
-      });
-    }
 
-    setIsScanning(false);
-  };
+      const data = await response.json();
 
-  const resetScan = () => { setImage(null); setResult(null); setShowHeatmap(false); };
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  //  WEBCAM TAB — real-time prediction loop
-  // ═══════════════════════════════════════════════════════════════════════════
-  const startCamera = useCallback(() => {
-    if (!modelReady) { setCamError('Model not loaded yet. Please wait...'); return; }
-    setCamError('');
-    setCamRunning(true);
-  }, [modelReady]);
-
-  const stopCamera = useCallback(() => {
-    if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    rafRef.current = null;
-    setCamRunning(false);
-    setLivePredictions([]);
-  }, []);
-
-  // Prediction loop — runs when camRunning is true
-  useEffect(() => {
-    if (!camRunning || !modelReady) return;
-
-    let active = true;
-
-    const loop = async () => {
-      if (!active) return;
-
-      const video = webcamRef.current?.video;
-      if (video && video.readyState === 4) {
-        try {
-          const preds = await runPrediction(video);
-          if (preds && active) setLivePredictions(preds);
-        } catch (e) {
-          console.warn('Prediction frame error:', e);
-        }
+      if (response.status === 422) {
+        // Skin pixel validation failed or low confidence — show rejection card
+        setResult({
+          isRejected: true,
+          rejectionMessage: data.message || 'This image does not appear to contain skin. Please upload a clear, close-up photo of the affected skin area.',
+          rejectionType: data.error === 'low_confidence' ? 'low_confidence' : 'not_skin',
+        });
+        setIsScanning(false);
+        return;
       }
 
-      if (active) rafRef.current = requestAnimationFrame(loop);
-    };
+      if (response.ok && !data.error) {
+        const translatedDisease = t(
+          `ai_labels.${data.class.toLowerCase()}`,
+          { defaultValue: data.class }
+        );
+        const finalResult = {
+          disease: translatedDisease,
+          confidence: data.confidence,
+          allPredictions: (data.all_predictions || []).map(p => ({
+            className: p.className,
+            probability: p.probability,
+          })),
+          explanation: t('scan.analysisExplanation', {
+            disease: translatedDisease,
+            confidence: data.confidence,
+            defaultValue: `AI identified "${translatedDisease}" with ${data.confidence}% confidence. Please consult a certified dermatologist.`,
+          }),
+          heatmapBase64: data.heatmap_image || null,
+          report: data.report || null,
+          pdfBase64: data.pdf_base64 || null,
+        };
+        setResult(finalResult);
+        
+        // Auto-save to history
+        if (profile) {
+          supabase.from('scan_history').insert([{
+            user_id: profile.id,
+            image_url: 'https://images.unsplash.com/photo-1612456225451-bb8d10d0131d?w=300&h=300&fit=crop',
+            prediction: finalResult.disease,
+            confidence: finalResult.confidence,
+            severity: getSeverity(finalResult.confidence),
+            created_at: new Date().toISOString()
+          }]).then(({ error }) => {
+             if (error) console.error("Error saving scan to history:", error);
+          });
+        }
 
-    rafRef.current = requestAnimationFrame(loop);
+        setIsScanning(false);
+        return;  // done
+      } else {
+        throw new Error(data.error || 'Failed to process image');
+      }
+    } catch (flaskErr) {
+      // [ERROR HANDLING]
+      // Show message if API fails, as requested.
+      console.error('[Scan] API Error:', flaskErr.message);
+      setResult({
+        disease: t('scan.analysisError', { defaultValue: 'Analysis Error' }),
+        confidence: '0',
+        allPredictions: [],
+        explanation: `API Error: ${flaskErr.message}. Please make sure the Flask backend is running on port 5000.`,
+        heatmapBase64: null,
+      });
+      setIsScanning(false);
+    }
+  };
 
-    return () => {
-      active = false;
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    };
-  }, [camRunning, modelReady, runPrediction]);
+  const resetScan = () => {
+    setImage(null);
+    setImageFile(null);
+    setResult(null);
+  };
 
-  // Stop camera when switching tabs
-  useEffect(() => {
-    if (activeTab !== 'webcam') stopCamera();
-  }, [activeTab, stopCamera]);
+  const downloadPDF = () => {
+    if (!result?.pdfBase64) return;
+    const link = document.createElement('a');
+    link.href = `data:application/pdf;base64,${result.pdfBase64}`;
+    link.download = `Twacha_Report_${result.disease.replace(/\s+/g, '_')}.pdf`;
+    link.click();
+  };
 
-  // Cleanup on unmount
-  useEffect(() => () => stopCamera(), [stopCamera]);
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  WEBCAM TAB — Send captured frame to backend
+  // ═══════════════════════════════════════════════════════════════════════════
+  const startCamera = useCallback(() => {
+    setCamError('');
+    setCamRunning(true);
+  }, []);
 
-  // Webcam error handler
+  const stopCamera = useCallback(() => {
+    setCamRunning(false);
+  }, []);
+
   const handleCamError = useCallback((err) => {
     console.error('Webcam error:', err);
     setCamError(
@@ -198,10 +194,30 @@ const Scan = () => {
     setCamRunning(false);
   }, []);
 
-  // ── Top prediction for live badge ──────────────────────────────────────
-  const topPred = livePredictions.length
-    ? livePredictions.reduce((a, b) => a.probability > b.probability ? a : b)
-    : null;
+  // Capture frame from webcam and send to Flask API
+  const captureImageAndAnalyze = async () => {
+    if (!webcamRef.current) return;
+    
+    // Get base64 string from webcam
+    const imageSrc = webcamRef.current.getScreenshot();
+    if (!imageSrc) return;
+
+    // Convert base64 to Blob to File
+    const res = await fetch(imageSrc);
+    const blob = await res.blob();
+    const file = new File([blob], "camera_capture.jpg", { type: "image/jpeg" });
+
+    // Set as upload image and automatically start scan
+    setImage(imageSrc);
+    setImageFile(file);
+    setResult(null);
+    stopCamera();
+    setActiveTab('upload');
+    
+    // We can't call startScan directly because state update is async, 
+    // but React 18 batches them. We will just wait for the user to click "Analyze" 
+    // or trigger it immediately (we'll just let the user click Analyze for better UX).
+  };
 
   // ═══════════════════════════════════════════════════════════════════════════
   //  RENDER
@@ -213,25 +229,8 @@ const Scan = () => {
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
       >
-        <h2>AI Skin Analysis</h2>
-        <p>Upload a photo or use live camera for an instant AI assessment.</p>
-
-        {/* Model loading status */}
-        {!modelReady && !modelError && (
-          <div className="model-status loading">
-            <Activity size={16} className="spinner" /> Loading AI model...
-          </div>
-        )}
-        {modelReady && (
-          <div className="model-status ready">
-            ✅ AI model ready — 6 skin conditions
-          </div>
-        )}
-        {modelError && (
-          <div className="model-status error">
-            <AlertTriangle size={16} /> {modelError}
-          </div>
-        )}
+        <h2>{t('scan.title')}</h2>
+        <p>{t('scan.subtitle')}</p>
       </motion.div>
 
       {/* ── Tab Switcher ─────────────────────────────────────────────────── */}
@@ -240,13 +239,13 @@ const Scan = () => {
           className={`scan-tab ${activeTab === 'upload' ? 'active' : ''}`}
           onClick={() => setActiveTab('upload')}
         >
-          <UploadCloud size={16} /> Upload Image
+          <UploadCloud size={16} /> {t('scan.uploadTab')}
         </button>
         <button
           className={`scan-tab ${activeTab === 'webcam' ? 'active' : ''}`}
           onClick={() => setActiveTab('webcam')}
         >
-          <Camera size={16} /> Live Camera
+          <Camera size={16} /> {t('scan.cameraTab')}
         </button>
       </div>
 
@@ -266,11 +265,11 @@ const Scan = () => {
                 <div className="upload-icons">
                   <UploadCloud size={48} className="text-primary" />
                 </div>
-                <h3>Drag & Drop your image here</h3>
-                <p className="text-muted">or click to browse from your device</p>
+                <h3>{t('scan.dragDrop')}</h3>
+                <p className="text-muted">{t('scan.browseText')}</p>
                 <input type="file" id="file-upload" accept="image/*" onChange={handleFileUpload} style={{ display: 'none' }} />
                 <div className="upload-actions">
-                  <label htmlFor="file-upload" className="btn-primary">Browse Files</label>
+                  <label htmlFor="file-upload" className="btn-primary">{t('scan.browseBtn')}</label>
                 </div>
               </motion.div>
             )}
@@ -289,14 +288,14 @@ const Scan = () => {
                     {isScanning && (
                       <div className="scanning-overlay glass">
                         <Activity size={40} className="spinner text-primary" />
-                        <p>AI is analyzing the image...</p>
+                        <p>{t('scan.aiAnalyzing')}</p>
                       </div>
                     )}
                   </div>
                   <div className="preview-actions">
-                    <button className="btn-secondary" onClick={resetScan} disabled={isScanning}>Cancel</button>
-                    <button className="btn-primary" onClick={startScan} disabled={isScanning || !modelReady}>
-                      {isScanning ? 'Analyzing...' : modelReady ? 'Analyze Skin' : 'Loading model...'}
+                    <button className="btn-secondary" onClick={resetScan} disabled={isScanning}>{t('scan.cancelBtn')}</button>
+                    <button className="btn-primary" onClick={startScan} disabled={isScanning}>
+                      {isScanning ? t('scan.analyzing') : t('scan.analyzeBtn')}
                     </button>
                   </div>
                 </motion.div>
@@ -305,64 +304,161 @@ const Scan = () => {
 
             <AnimatePresence>
               {result && (
-                <motion.div
-                  className="results-area glass-card"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                >
-                  <div className="results-grid">
-                    <div className="result-image-col">
-                      <div className={`result-image-container ${showHeatmap ? 'heatmap-active' : ''}`}>
-                        <img src={image} alt="Analyzed" className="result-image" />
-                        {showHeatmap && <div className="heatmap-overlay" />}
-                      </div>
-                      <button className="heatmap-toggle btn-secondary" onClick={() => setShowHeatmap(!showHeatmap)}>
-                        <ImageIcon size={16} /> Toggle Heatmap
-                      </button>
-                    </div>
-
-                    <div className="result-details-col">
-                      <div className="confidence-badge">
-                        <span className="badge glass">Analysis Complete ✓</span>
-                      </div>
-                      <h3 className="disease-name">{result.disease}</h3>
-
-                      <div className="confidence-meter">
-                        <div className="confidence-circle" style={{ '--percent': `${result.confidence}%` }}>
-                          <span className="confidence-value text-gradient">{result.confidence}%</span>
-                          <span className="confidence-label">Confidence</span>
-                        </div>
+                result.isRejected ? (
+                  /* ── REJECTION CARD: shown when image is not skin or confidence too low ── */
+                  <motion.div
+                    className="results-area glass-card"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    style={{ borderColor: 'rgba(251,146,60,0.4)' }}
+                  >
+                    <div style={{ textAlign: 'center', padding: '1.5rem 1rem' }}>
+                      <div style={{
+                        width: '64px', height: '64px',
+                        borderRadius: '50%',
+                        background: 'rgba(251,146,60,0.15)',
+                        border: '2px solid rgba(251,146,60,0.5)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        margin: '0 auto 1.25rem',
+                      }}>
+                        <AlertTriangle size={30} style={{ color: '#fb923c' }} />
                       </div>
 
-                      {result.allPredictions?.length > 0 && (
-                        <div className="all-predictions glass-card">
-                          {result.allPredictions.map((p) => (
-                            <div key={p.className} className="pred-row">
-                              <span className="pred-name">{p.className}</span>
-                              <div className="pred-bar-wrap">
-                                <div className="pred-bar" style={{ width: `${(p.probability * 100).toFixed(1)}%` }} />
-                              </div>
-                              <span className="pred-val">{(p.probability * 100).toFixed(1)}%</span>
-                            </div>
-                          ))}
-                        </div>
+                      <h3 style={{ color: '#fb923c', marginBottom: '0.5rem', fontSize: '1.15rem' }}>
+                        {result.rejectionType === 'low_confidence'
+                          ? 'Unclear Image / Normal Skin'
+                          : t('scan.notSkinTitle',       { defaultValue: 'Invalid Input: Not Skin' })}
+                      </h3>
+
+                      <p style={{
+                        color: 'var(--text-muted)', fontSize: '0.9rem',
+                        lineHeight: '1.6', maxWidth: '420px', margin: '0 auto 1.5rem',
+                        whiteSpace: 'pre-wrap'
+                      }}>
+                        {result.rejectionMessage}
+                      </p>
+
+                      {/* Show the uploaded image so user can see what was rejected */}
+                      {image && (
+                        <img
+                          src={image}
+                          alt="Rejected"
+                          style={{
+                            width: '140px', height: '140px', objectFit: 'cover',
+                            borderRadius: 'var(--radius-md)',
+                            border: '2px solid rgba(251,146,60,0.4)',
+                            marginBottom: '1.5rem', opacity: 0.75,
+                          }}
+                        />
                       )}
 
-                      <div className="chat-explanation glass">
-                        <p>{result.explanation}</p>
-                      </div>
-
-                      <div className="result-actions">
-                        <button className="btn-secondary" onClick={resetScan}>
-                          <RefreshCw size={16} /> Scan Another
-                        </button>
-                        <button className="btn-primary" onClick={() => navigate('/doctors')}>
-                          Consult Doctor
+                      <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+                        <button className="btn-primary" onClick={resetScan}
+                          style={{ background: 'linear-gradient(135deg,#fb923c,#f97316)' }}>
+                          <RefreshCw size={16} style={{ marginRight: '6px' }} />
+                          {t('scan.tryAgain', { defaultValue: 'Try Another Image' })}
                         </button>
                       </div>
                     </div>
-                  </div>
-                </motion.div>
+                  </motion.div>
+                ) : (
+                  /* ── NORMAL RESULTS CARD ── */
+                  <motion.div
+                    className="results-area glass-card"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                  >
+                    <div className="results-grid">
+
+                      {/* ── Image column: original + Grad-CAM heatmap ── */}
+                      <div className="result-image-col">
+                        <p className="text-muted" style={{ fontSize: '0.72rem', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                          {t('scan.originalImage', { defaultValue: 'Original Image' })}
+                        </p>
+                        <img
+                          src={image}
+                          alt="Analyzed"
+                          className="result-image"
+                          style={{ width: '100%', borderRadius: 'var(--radius-md)', marginBottom: '0.75rem' }}
+                        />
+
+                        {/*
+                         * [GRAD-CAM PURPOSE]
+                         * Grad-CAM (Gradient-weighted Class Activation Mapping) is a technique that makes AI models transparent.
+                         * Simple explanation for students: It creates a "heatmap" showing exactly which parts of the image 
+                         * the AI looked at to make its decision. 
+                         * RED/warm areas = "high attention" (where the AI found disease features).
+                         * BLUE/cool areas = "low attention".
+                         * This helps doctors and users trust the AI by seeing its visual reasoning.
+                         */}
+                        {result.heatmapBase64 && (
+                          <>
+                            <p className="text-muted" style={{ fontSize: '0.72rem', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                              {t('scan.heatmap', { defaultValue: 'Grad-CAM Heatmap' })}
+                            </p>
+                            <img
+                              src={`data:image/jpeg;base64,${result.heatmapBase64}`}
+                              alt="Grad-CAM Heatmap"
+                              className="result-image"
+                              style={{ width: '100%', borderRadius: 'var(--radius-md)' }}
+                            />
+                          </>
+                        )}
+                      </div>
+
+                      {/* ── Result details column ── */}
+                      <div className="result-details-col">
+                        <div className="confidence-badge">
+                          <span className="badge glass">{t('scan.analysisComplete')}</span>
+                        </div>
+
+                        <h3 className="disease-name">{result.disease}</h3>
+
+                        <div className="confidence-meter">
+                          <div className="confidence-circle" style={{ '--percent': `${result.confidence}%` }}>
+                            <span className="confidence-value text-gradient">{result.confidence}%</span>
+                            <span className="confidence-label">{t('scan.confidence')}</span>
+                          </div>
+                        </div>
+
+                        {result.report && (
+                          <div className="report-card glass" style={{ marginTop: '1rem', padding: '1rem', borderRadius: 'var(--radius-md)', background: 'rgba(255,255,255,0.05)' }}>
+                            <h4 style={{ marginBottom: '0.5rem', color: '#c4b5fd' }}>{t('scan.analysisReport', { defaultValue: 'Analysis Report' })}</h4>
+                            <p style={{ fontSize: '0.85rem', marginBottom: '0.25rem' }}><strong>{t('scan.severity', { defaultValue: 'Severity' })}:</strong> {result.report.severity}</p>
+                            <p style={{ fontSize: '0.85rem', marginBottom: '0.25rem' }}><strong>{t('scan.precautions', { defaultValue: 'Precautions' })}:</strong> {result.report.precautions}</p>
+                            <p style={{ fontSize: '0.85rem' }}><strong>{t('scan.suggestedDoctor', { defaultValue: 'Suggested Doctor' })}:</strong> {result.report.doctor}</p>
+                          </div>
+                        )}
+
+                        <div className="chat-explanation glass" style={{ marginTop: '1rem' }}>
+                          <p>{result.explanation}</p>
+                          {result.heatmapBase64 && (
+                            <p style={{ marginTop: '0.5rem', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                              {t('scan.gradcamExplanation', { defaultValue: 'The highlighted regions show where the model focused while making the prediction using Grad-CAM.' })}
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="result-actions" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '1.5rem' }}>
+                          {result.pdfBase64 && (
+                            <button className="btn-secondary" onClick={downloadPDF} style={{ width: '100%', display: 'flex', justifyContent: 'center', gap: '0.5rem' }}>
+                              <Download size={18} /> {t('scan.downloadPdf', { defaultValue: 'Download PDF Report' })}
+                            </button>
+                          )}
+                          <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            <button className="btn-secondary" onClick={resetScan} style={{ flex: 1 }}>
+                              <RefreshCw size={16} /> {t('scan.scanAnother', { defaultValue: 'Try Another Image' })}
+                            </button>
+                            <button className="btn-primary" onClick={() => navigate(`/doctors?condition=${result.disease}`)} style={{ flex: 1 }}>
+                              {t('scan.consultDoctor', { defaultValue: 'Find Doctor' })}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                    </div>
+                  </motion.div>
+                )
               )}
             </AnimatePresence>
           </>
@@ -391,77 +487,41 @@ const Scan = () => {
               ) : (
                 <div className="webcam-placeholder">
                   <Camera size={56} className="text-primary" />
-                  <p className="text-muted">Camera not started</p>
-                </div>
-              )}
-
-              {/* Live top-prediction badge */}
-              {camRunning && topPred && (
-                <div className="live-badge glass">
-                  🔴 Live — <strong>{topPred.className}</strong>{' '}
-                  <span className="text-primary">
-                    {(topPred.probability * 100).toFixed(1)}%
-                  </span>
+                  <p className="text-muted">{t('scan.cameraNotStarted')}</p>
                 </div>
               )}
             </div>
 
-            {/* Live predictions bar chart */}
-            {camRunning && livePredictions.length > 0 && (
-              <div className="live-predictions glass-card">
-                <h4>Live Predictions</h4>
-                {livePredictions.map((p) => (
-                  <div key={p.className} className="pred-row">
-                    <span className="pred-name">{p.className}</span>
-                    <div className="pred-bar-wrap">
-                      <motion.div
-                        className="pred-bar"
-                        animate={{ width: `${(p.probability * 100).toFixed(1)}%` }}
-                        transition={{ duration: 0.2 }}
-                      />
-                    </div>
-                    <span className="pred-val">{(p.probability * 100).toFixed(1)}%</span>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Errors */}
             {camError && (
               <div className="tm-error glass-card">
                 <AlertTriangle size={16} /> {camError}
               </div>
             )}
 
-            {/* Controls */}
             <div className="webcam-controls">
               {!camRunning ? (
-                <button
-                  className="btn-primary flex-center"
-                  onClick={startCamera}
-                  disabled={!modelReady}
-                  style={{ gap: '0.5rem' }}
-                >
+                <button className="btn-primary flex-center" onClick={startCamera} style={{ gap: '0.5rem' }}>
                   <Play size={18} />
-                  {modelReady ? 'Start Camera Scan' : 'Loading model...'}
+                  {t('scan.startCamera')}
                 </button>
               ) : (
-                <button
-                  className="btn-secondary flex-center text-danger"
-                  onClick={stopCamera}
-                  style={{ gap: '0.5rem' }}
-                >
-                  <StopCircle size={18} /> Stop Camera
-                </button>
+                <>
+                  <button className="btn-primary flex-center" onClick={captureImageAndAnalyze} style={{ gap: '0.5rem', marginBottom: '0.5rem' }}>
+                    <Camera size={18} /> Capture & Analyze
+                  </button>
+                  <button className="btn-secondary flex-center text-danger" onClick={stopCamera} style={{ gap: '0.5rem' }}>
+                    <StopCircle size={18} /> {t('scan.stopCamera')}
+                  </button>
+                </>
               )}
             </div>
 
             <p className="webcam-note text-muted">
-              Point your camera at the skin area. AI classifies in real-time using TensorFlow.js.<br />
-              Detected conditions: Eczema, Melanoma, Atopic Dermatitis, BCC, Melanoma Nevi, BKL
+              Point your camera at the skin area and click Capture. The image will be sent to the AI for analysis.
             </p>
           </motion.div>
         )}
+
       </div>
     </div>
   );

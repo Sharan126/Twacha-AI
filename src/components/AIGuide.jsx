@@ -1,58 +1,239 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Bot, X, Send, Mic } from 'lucide-react';
+import { Bot, X, Send, Mic, MicOff, Volume2, VolumeX, Trash2 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
+import { useTranslation } from 'react-i18next';
 import './AIGuide.css';
 
+// ============================================================
+//  RESPONSE FORMATTER
+//  Converts plain text with **bold** and bullets into HTML
+// ============================================================
+const formatAIResponse = (text) => {
+  if (!text) return '';
+  let html = text
+    // Bold: **text**
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    // Numbered list: lines starting with "1. ", "2. ", etc.
+    .replace(/^\d+\.\s(.+)$/gm, '<li class="numbered">$1</li>')
+    // Bullet list: lines starting with "- " or "• "
+    .replace(/^[-•]\s(.+)$/gm, '<li class="bullet">$1</li>')
+    // Newlines to <br>
+    .replace(/\n/g, '<br/>');
+
+  // Wrap consecutive <li> in <ul>
+  html = html.replace(/(<li[^>]*>.*?<\/li>(<br\/>)?)+/g, (match) => {
+    const items = match.replace(/<br\/>/g, '');
+    return `<ul>${items}</ul>`;
+  });
+
+  return html;
+};
+
+// ============================================================
+//  SAFETY WARNING DETECTION
+// ============================================================
+const isSafetyMessage = (text) =>
+  text.includes('certified dermatologist') || text.includes('⚠️');
+
+// ============================================================
+//  MAIN COMPONENT
+// ============================================================
 const AIGuide = () => {
-  const { aiGuideEnabled, chatMessages, setChatMessages, isChatTyping, setIsChatTyping } = useAppContext();
+  const {
+    aiGuideEnabled,
+    chatMessages,
+    setChatMessages,
+    isChatTyping,
+    setIsChatTyping,
+    clearChatHistory,
+  } = useAppContext();
+  const { t, i18n } = useTranslation();
+
   const [isOpen, setIsOpen] = useState(false);
   const [inputText, setInputText] = useState('');
-  const messagesEndRef = useRef(null);
+  const [isMuted, setIsMuted] = useState(false);
+  const isMutedRef = useRef(isMuted);
 
+  useEffect(() => {
+    isMutedRef.current = isMuted;
+    if (isMuted && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+  }, [isMuted]);
+
+  const [isListening, setIsListening] = useState(false);
+  const [streamingMsgId, setStreamingMsgId] = useState(null);
+
+  const messagesEndRef = useRef(null);
+  const recognitionRef = useRef(null);
+  const inputRef = useRef(null);
+
+  // Build history from chatMessages for the backend
+  const buildHistory = useCallback(() => {
+    const pairs = [];
+    const msgs = chatMessages.filter((m) => m.id !== 1 || m.sender !== 'ai'); // skip welcome
+    for (let i = 0; i < msgs.length - 1; i += 2) {
+      if (msgs[i]?.sender === 'user' && msgs[i + 1]?.sender === 'ai') {
+        pairs.push({ user: msgs[i].text, ai: msgs[i + 1].text });
+      }
+    }
+    return pairs.slice(-5); // last 5 exchanges
+  }, [chatMessages]);
+
+  // Smart suggestions
   const quickSuggestions = [
-    "Analyze my skin",
-    "Skincare routine",
-    "Track medication",
-    "Skin problems help"
+    t('chatbot.suggestion_analyze') || '🔍 How does the skin scan work?',
+    t('chatbot.suggestion_routine') || '📅 Daily skincare routine',
+    '🌿 Natural acne remedies',
+    '💧 Oily skin tips',
   ];
 
+  // Auto-scroll on new messages
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
   useEffect(() => {
-    if (isOpen) {
-      scrollToBottom();
-    }
+    if (isOpen) scrollToBottom();
   }, [isOpen, chatMessages, isChatTyping]);
 
-  const handleSendMessage = (text) => {
-    if (!text.trim()) return;
+  // ============================================================
+  //  SPEECH-TO-TEXT (Voice Input)
+  // ============================================================
+  const startVoiceInput = () => {
+    const SpeechRecognition =
+      window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert('Voice input is not supported in this browser. Try Chrome.');
+      return;
+    }
 
-    // Add user message
-    const userMsg = { id: Date.now(), sender: 'user', text };
-    setChatMessages(prev => [...prev, userMsg]);
+    if (isListening) {
+      recognitionRef.current?.stop();
+      setIsListening(false);
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = i18n.language === 'kn' ? 'kn-IN' : 'en-US';
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    recognition.onstart = () => setIsListening(true);
+    recognition.onend = () => setIsListening(false);
+    recognition.onerror = () => setIsListening(false);
+
+    recognition.onresult = (e) => {
+      const transcript = e.results[0][0].transcript;
+      setInputText(transcript);
+      inputRef.current?.focus();
+    };
+
+    recognitionRef.current = recognition;
+    recognition.start();
+  };
+
+  // ============================================================
+  //  TEXT-TO-SPEECH (Voice Output)
+  // ============================================================
+  const speakText = (text) => {
+    if (isMutedRef.current || !window.speechSynthesis) return;
+    // Cancel any ongoing speech
+    window.speechSynthesis.cancel();
+    // Strip HTML tags for TTS
+    const plain = text.replace(/<[^>]+>/g, '').replace(/[*•]/g, '');
+    const utterance = new SpeechSynthesisUtterance(plain);
+    utterance.lang = i18n.language === 'kn' ? 'kn-IN' : 'en-US';
+    utterance.rate = 0.95;
+    utterance.pitch = 1;
+    window.speechSynthesis.speak(utterance);
+  };
+
+  // ============================================================
+  //  SEND MESSAGE WITH STREAMING
+  // ============================================================
+  const handleSendMessage = async (text) => {
+    if (!text.trim() || isChatTyping) return;
+
+    const userText = text.trim();
+    const userMsgId = Date.now();
+    const aiMsgId = Date.now() + 1;
+
+    // 1. Add user message
+    setChatMessages((prev) => [
+      ...prev,
+      { id: userMsgId, sender: 'user', text: userText },
+    ]);
     setInputText('');
     setIsChatTyping(true);
 
-    // Simulate AI response
-    setTimeout(() => {
-      let aiResponse = "I'm a simulated AI assistant. In a live environment, I would connect to a backend to analyze your request about: '" + text + "'. How else can I help?";
-      
-      if (text.toLowerCase().includes('routine')) {
-        aiResponse = "For a basic daily routine, I recommend: 1) Gentle Cleanser, 2) Vitamin C Serum (morning), 3) Moisturizer, and 4) SPF 30+ (morning). Check our Tips section for more!";
-      } else if (text.toLowerCase().includes('analyze')) {
-        aiResponse = "To analyze your skin, please navigate to the 'Scan' tab from the top menu and upload a clear photo of the affected area.";
+    // 2. Add empty AI bubble (will be filled by streaming)
+    setChatMessages((prev) => [
+      ...prev,
+      { id: aiMsgId, sender: 'ai', text: '', streaming: true },
+    ]);
+    setStreamingMsgId(aiMsgId);
+
+    try {
+      const history = buildHistory();
+
+      const res = await fetch('/api/ai-stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: userText, history, language: i18n.language }),
+      });
+
+      if (!res.ok) throw new Error(`Backend error: ${res.status}`);
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let accumulated = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        accumulated += decoder.decode(value, { stream: true });
+
+        // Update the streaming AI bubble in real-time
+        setChatMessages((prev) =>
+          prev.map((m) =>
+            m.id === aiMsgId ? { ...m, text: accumulated } : m
+          )
+        );
+        scrollToBottom();
       }
 
-      setChatMessages(prev => [...prev, { id: Date.now() + 1, sender: 'ai', text: aiResponse }]);
+      // 3. Mark streaming done
+      setChatMessages((prev) =>
+        prev.map((m) =>
+          m.id === aiMsgId ? { ...m, streaming: false } : m
+        )
+      );
+
+      // 4. Speak the response
+      speakText(accumulated);
+    } catch (err) {
+      console.error('[AIGuide] Streaming error:', err);
+      const errMsg =
+        '⚠️ Unable to connect to Twacha AI. Please ensure the backend server is running.';
+      setChatMessages((prev) =>
+        prev.map((m) =>
+          m.id === aiMsgId
+            ? { ...m, text: errMsg, streaming: false, error: true }
+            : m
+        )
+      );
+    } finally {
       setIsChatTyping(false);
-    }, 1500);
+      setStreamingMsgId(null);
+    }
   };
 
   const handleKeyPress = (e) => {
-    if (e.key === 'Enter') {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
       handleSendMessage(inputText);
     }
   };
@@ -63,72 +244,147 @@ const AIGuide = () => {
     <div className="ai-guide-wrapper">
       <AnimatePresence>
         {isOpen && (
-          <motion.div 
+          <motion.div
             className="chat-panel glass"
-            initial={{ opacity: 0, y: 20, scale: 0.9 }}
+            initial={{ opacity: 0, y: 24, scale: 0.92 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 20, scale: 0.9 }}
+            exit={{ opacity: 0, y: 24, scale: 0.92 }}
+            transition={{ type: 'spring', damping: 22, stiffness: 300 }}
           >
+            {/* ─── Header ─── */}
             <div className="chat-header bg-primary text-white">
               <div className="flex-center gap-sm">
-                <Bot size={20} />
+                <div className="chat-avatar-ring">
+                  <Bot size={18} />
+                </div>
                 <div>
-                  <h4 style={{ margin: 0, fontSize: '1rem', color: 'white' }}>Twacha Assistant</h4>
-                  <span style={{ fontSize: '0.7rem', opacity: 0.8, fontWeight: 'normal' }}>Ask anything about your skin or the app</span>
+                  <h4 style={{ margin: 0, fontSize: '0.95rem', color: 'white' }}>
+                    {t('chatbot.title') || 'Twacha AI'}
+                  </h4>
+                  <span className="chat-status-dot">
+                    <span className="dot-pulse" />
+                    {isChatTyping ? 'Typing...' : 'Online'}
+                  </span>
                 </div>
               </div>
-              <button className="chat-close-btn text-white" onClick={() => setIsOpen(false)}>
-                <X size={18} />
-              </button>
+              <div className="chat-header-actions">
+                {/* Mute TTS toggle */}
+                <button
+                  className="chat-icon-action"
+                  title={isMuted ? 'Unmute voice' : 'Mute voice'}
+                  onClick={() => setIsMuted((m) => !m)}
+                >
+                  {isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
+                </button>
+                {/* Clear chat */}
+                <button
+                  className="chat-icon-action"
+                  title="Clear chat history"
+                  onClick={clearChatHistory}
+                >
+                  <Trash2 size={16} />
+                </button>
+                {/* Close */}
+                <button
+                  className="chat-close-btn text-white"
+                  onClick={() => setIsOpen(false)}
+                >
+                  <X size={18} />
+                </button>
+              </div>
             </div>
 
+            {/* ─── Messages ─── */}
             <div className="chat-messages">
-              {chatMessages.map(msg => (
-                <div key={msg.id} className={`message-bubble ${msg.sender}`}>
-                  {msg.sender === 'ai' && <div className="msg-avatar"><Bot size={14} /></div>}
-                  <div className="msg-text">{msg.text}</div>
-                </div>
+              {chatMessages.map((msg) => (
+                <motion.div
+                  key={msg.id}
+                  className={`message-bubble ${msg.sender}${msg.error ? ' error-bubble' : ''}${isSafetyMessage(msg.text) ? ' safety-bubble' : ''}`}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.25 }}
+                >
+                  {msg.sender === 'ai' && (
+                    <div className="msg-avatar">
+                      <Bot size={13} />
+                    </div>
+                  )}
+                  <div className="msg-content">
+                    {msg.sender === 'ai' && msg.text ? (
+                      <div
+                        className="msg-text formatted"
+                        dangerouslySetInnerHTML={{
+                          __html: formatAIResponse(msg.text),
+                        }}
+                      />
+                    ) : (
+                      <div className="msg-text">{msg.text}</div>
+                    )}
+                    {/* Streaming cursor */}
+                    {msg.streaming && (
+                      <span className="stream-cursor">▌</span>
+                    )}
+                  </div>
+                </motion.div>
               ))}
-              
-              {isChatTyping && (
+
+              {/* Typing indicator (fallback before first chunk) */}
+              {isChatTyping && streamingMsgId === null && (
                 <div className="message-bubble ai">
-                  <div className="msg-avatar"><Bot size={14} /></div>
+                  <div className="msg-avatar">
+                    <Bot size={13} />
+                  </div>
                   <div className="typing-indicator">
-                    <span></span><span></span><span></span>
+                    <span /><span /><span />
                   </div>
                 </div>
               )}
               <div ref={messagesEndRef} />
             </div>
 
+            {/* ─── Quick Suggestions ─── */}
             <div className="quick-suggestions">
               {quickSuggestions.map((suggestion, idx) => (
-                <button 
-                  key={idx} 
+                <button
+                  key={idx}
                   className="suggestion-chip glass"
                   onClick={() => handleSendMessage(suggestion)}
+                  disabled={isChatTyping}
                 >
                   {suggestion}
                 </button>
               ))}
             </div>
 
+            {/* ─── Input Area ─── */}
             <div className="chat-input-area border-t border-glass">
-              <input 
-                type="text" 
-                placeholder="Type your question..." 
+              <input
+                ref={inputRef}
+                type="text"
+                placeholder={
+                  isListening
+                    ? '🎤 Listening...'
+                    : t('chatbot.placeholder') || 'Ask about skincare...'
+                }
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
                 onKeyPress={handleKeyPress}
-                className="chat-input"
+                className={`chat-input ${isListening ? 'listening' : ''}`}
+                disabled={isChatTyping}
               />
-              <button className="icon-btn text-muted" title="Voice Input (Mock)">
-                <Mic size={18} />
+              {/* Voice Input */}
+              <button
+                className={`icon-btn mic-btn ${isListening ? 'listening-active' : 'text-muted'}`}
+                title={isListening ? 'Stop listening' : 'Voice input'}
+                onClick={startVoiceInput}
+              >
+                {isListening ? <MicOff size={18} /> : <Mic size={18} />}
               </button>
-              <button 
-                className={`icon-btn send-btn ${inputText.trim() ? 'text-primary' : 'text-muted'}`} 
+              {/* Send */}
+              <button
+                className={`icon-btn send-btn ${inputText.trim() && !isChatTyping ? 'text-primary' : 'text-muted'}`}
                 onClick={() => handleSendMessage(inputText)}
-                disabled={!inputText.trim()}
+                disabled={!inputText.trim() || isChatTyping}
               >
                 <Send size={18} />
               </button>
@@ -137,14 +393,38 @@ const AIGuide = () => {
         )}
       </AnimatePresence>
 
-      <motion.button 
-        className="ai-fab bg-primary"
+      {/* ─── FAB Button ─── */}
+      <motion.button
+        className={`ai-fab bg-primary ${isOpen ? 'open' : ''}`}
         onClick={() => setIsOpen(!isOpen)}
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
+        whileHover={{ scale: 1.08 }}
+        whileTap={{ scale: 0.93 }}
+        title="Twacha AI Assistant"
       >
-        <Bot size={28} color="white" />
-        <div className="fab-pulse"></div>
+        <AnimatePresence mode="wait">
+          {isOpen ? (
+            <motion.div
+              key="x"
+              initial={{ rotate: -90, opacity: 0 }}
+              animate={{ rotate: 0, opacity: 1 }}
+              exit={{ rotate: 90, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+            >
+              <X size={26} color="white" />
+            </motion.div>
+          ) : (
+            <motion.div
+              key="bot"
+              initial={{ rotate: 90, opacity: 0 }}
+              animate={{ rotate: 0, opacity: 1 }}
+              exit={{ rotate: -90, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+            >
+              <Bot size={26} color="white" />
+            </motion.div>
+          )}
+        </AnimatePresence>
+        {!isOpen && <div className="fab-pulse" />}
       </motion.button>
     </div>
   );

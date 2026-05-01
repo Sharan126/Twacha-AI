@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Sun, Moon, Shield, ShieldOff, Globe, Menu, LogIn, User, X, MessageSquarePlus } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
+import { useTranslation } from 'react-i18next';
 import './Navbar.css';
 
 const Navbar = () => {
@@ -11,10 +12,10 @@ const Navbar = () => {
     theme, toggleTheme,
     language, setLanguage,
     privacyMode, togglePrivacy,
-    t,
     isWalkthroughActive, currentStep, walkthroughSteps,
     setFeedbackModalOpen
   } = useAppContext();
+  const { t } = useTranslation();
 
   const { isAuthenticated, profile, logout } = useAuth();
   const user = profile; // profile has name, role fields

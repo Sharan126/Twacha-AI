@@ -1,21 +1,27 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AppProvider } from './context/AppContext';
 import { AuthProvider } from './context/AuthContext';
 import Navbar from './components/Navbar';
-import Home from './pages/Home';
-import Scan from './pages/Scan';
-import Doctors from './pages/Doctors';
-import Medications from './pages/Medications';
-import History from './pages/History';
-import Records from './pages/Records';
-import Settings from './pages/Settings';
-import Auth from './pages/Auth';
-import Tips from './pages/Tips';
 import AIGuide from './components/AIGuide';
 import WalkthroughOverlay from './components/WalkthroughOverlay';
 import WebsiteFeedbackModal from './components/WebsiteFeedbackModal';
 import DoctorFeedbackModal from './components/DoctorFeedbackModal';
+
+const Home = React.lazy(() => import('./pages/Home'));
+const Scan = React.lazy(() => import('./pages/Scan'));
+const Doctors = React.lazy(() => import('./pages/Doctors'));
+const Medications = React.lazy(() => import('./pages/Medications'));
+const History = React.lazy(() => import('./pages/History'));
+const Records = React.lazy(() => import('./pages/Records'));
+const Settings = React.lazy(() => import('./pages/Settings'));
+const Auth = React.lazy(() => import('./pages/Auth'));
+const Tips = React.lazy(() => import('./pages/Tips'));
+const Chat = React.lazy(() => import('./pages/Chat'));
+const AdminFeedback = React.lazy(() => import('./pages/AdminFeedback'));
+const DoctorDashboard = React.lazy(() => import('./pages/DoctorDashboard'));
+const PatientDashboard = React.lazy(() => import('./pages/PatientDashboard'));
+import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
   return (
@@ -25,17 +31,30 @@ function App() {
           <div className="app-wrapper">
             <Navbar />
             <main>
-              <Routes>
-                <Route path="/" element={<Home />} />
-                <Route path="/scan" element={<Scan />} />
-                <Route path="/doctors" element={<Doctors />} />
-                <Route path="/history" element={<History />} />
-                <Route path="/records" element={<Records />} />
-                <Route path="/medications" element={<Medications />} />
-                <Route path="/tips" element={<Tips />} />
-                <Route path="/settings" element={<Settings />} />
-                <Route path="/auth" element={<Auth />} />
-              </Routes>
+              <Suspense fallback={<div className="flex-center" style={{ height: '50vh', width: '100%' }}><div className="spinner text-primary" style={{width: '40px', height: '40px'}}></div></div>}>
+                <Routes>
+                  <Route path="/" element={<Home />} />
+                  <Route path="/auth" element={<Auth />} />
+                  
+                  {/* Doctor Only Routes */}
+                  <Route path="/doctor-dashboard" element={<ProtectedRoute allowedRoles={['doctor']}><DoctorDashboard /></ProtectedRoute>} />
+                  
+                  {/* Patient Only Routes */}
+                  <Route path="/patient-dashboard" element={<ProtectedRoute allowedRoles={['patient']}><PatientDashboard /></ProtectedRoute>} />
+                  <Route path="/scan" element={<ProtectedRoute allowedRoles={['patient']}><Scan /></ProtectedRoute>} />
+                  <Route path="/doctors" element={<ProtectedRoute allowedRoles={['patient']}><Doctors /></ProtectedRoute>} />
+                  <Route path="/history" element={<ProtectedRoute allowedRoles={['patient']}><History /></ProtectedRoute>} />
+                  <Route path="/records" element={<ProtectedRoute allowedRoles={['patient']}><Records /></ProtectedRoute>} />
+                  <Route path="/medications" element={<ProtectedRoute allowedRoles={['patient']}><Medications /></ProtectedRoute>} />
+                  
+                  {/* Common Protected Routes */}
+                  <Route path="/tips" element={<ProtectedRoute><Tips /></ProtectedRoute>} />
+                  <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+                  <Route path="/chat/:doctorId" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
+                  
+                  <Route path="/admin/feedback" element={<AdminFeedback />} />
+                </Routes>
+              </Suspense>
             </main>
             <AIGuide />
             <WalkthroughOverlay />

@@ -1,16 +1,22 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { translations } from '../translations';
+import { useTranslation } from 'react-i18next';
 
 const AppContext = createContext();
 
 export const AppProvider = ({ children }) => {
+  const { t, i18n } = useTranslation();
   const [theme, setTheme] = useState('light');
-  const [language, setLanguage] = useState('en'); // 'en' or 'kn'
   const [privacyMode, setPrivacyMode] = useState(false);
   const [aiGuideEnabled, setAiGuideEnabled] = useState(true);
   
   // App-level state (theme, language, etc.)
   // Auth state is managed separately in AuthContext
+
+  // Language state wrapper
+  const language = i18n.language;
+  const setLanguage = (lang) => {
+    i18n.changeLanguage(lang);
+  };
 
   // Walkthrough State
   const [isWalkthroughActive, setIsWalkthroughActive] = useState(false);
@@ -19,28 +25,52 @@ export const AppProvider = ({ children }) => {
   const [isTextOnly, setIsTextOnly] = useState(false);
 
   const walkthroughSteps = [
-    { targetId: 'nav-home', text: "Welcome to Twacha AI! This is your dashboard." },
-    { targetId: 'nav-scan', text: "Click the Scan tab to analyze your skin condition using our AI model." },
-    { targetId: 'nav-doctors', text: "Here you can find expert dermatologists for online or offline consultations." },
-    { targetId: 'nav-tips', text: "Check out the Tips section for daily skincare routines and dietary advice." },
-    { targetId: 'nav-medications', text: "Use the Medications tab to track your daily prescriptions and never miss a dose." },
-    { targetId: 'nav-auth', text: "Finally, sign in here to securely save your records." }
+    { targetId: 'nav-home', text: t('walkthrough.home') },
+    { targetId: 'nav-scan', text: t('walkthrough.scan') },
+    { targetId: 'nav-doctors', text: t('walkthrough.doctors') },
+    { targetId: 'nav-tips', text: t('walkthrough.tips') },
+    { targetId: 'nav-medications', text: t('walkthrough.medications') },
+    { targetId: 'nav-auth', text: t('walkthrough.auth') }
   ];
 
-  // Chatbot State
-  const [chatMessages, setChatMessages] = useState([
-    { id: 1, sender: 'ai', text: "Hi! I'm your AI skin assistant. How can I help you today?" }
-  ]);
+  // Chatbot State — persistent via localStorage
+  const [chatMessages, setChatMessages] = useState(() => {
+    try {
+      const saved = localStorage.getItem('twacha_chat_history');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) { /* ignore */ }
+    return [{ id: 1, sender: 'ai', text: t('chatbot.default_ai') }];
+  });
   const [isChatTyping, setIsChatTyping] = useState(false);
+
+  // Persist chat to localStorage whenever it changes
+  useEffect(() => {
+    try {
+      // Keep last 20 messages in storage
+      const toSave = chatMessages.slice(-20);
+      localStorage.setItem('twacha_chat_history', JSON.stringify(toSave));
+    } catch (e) { /* ignore */ }
+  }, [chatMessages]);
+
+  const clearChatHistory = () => {
+    const welcome = [{ id: Date.now(), sender: 'ai', text: t('chatbot.default_ai') }];
+    setChatMessages(welcome);
+    localStorage.removeItem('twacha_chat_history');
+  };
 
   // Feedback State
   const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
   const [doctorFeedbackModal, setDoctorFeedbackModal] = useState(null); // { doctorId, doctorName, doctorImage, consultType, date }
 
   const submitWebsiteFeedback = (data) => {
+    // Note: To submit properly, we'd need user from auth context, but AppContext doesn't have it.
+    // It's passed in from components usually, but the original code had `userId: user?.id || null` which was undefined here.
     const newFeedback = {
       id: Date.now().toString(),
-      userId: user?.id || null,
+      userId: null,
       createdAt: new Date().toISOString(),
       ...data
     };
@@ -54,7 +84,7 @@ export const AppProvider = ({ children }) => {
   const submitDoctorFeedback = (data) => {
     const newFeedback = {
       id: Date.now().toString(),
-      userId: user?.id || null,
+      userId: null,
       ...data
     };
     
@@ -62,17 +92,6 @@ export const AppProvider = ({ children }) => {
     const existing = JSON.parse(localStorage.getItem('doctor_feedback') || '[]');
     localStorage.setItem('doctor_feedback', JSON.stringify([newFeedback, ...existing]));
     console.log("Doctor feedback submitted:", newFeedback);
-  };
-
-  // Translation helper
-  const t = (key) => {
-    const keys = key.split('.');
-    let value = translations[language];
-    for (let k of keys) {
-      if (value === undefined) return key;
-      value = value[k];
-    }
-    return value || key;
   };
 
   // Toggle Theme
@@ -114,6 +133,7 @@ export const AppProvider = ({ children }) => {
         setChatMessages,
         isChatTyping,
         setIsChatTyping,
+        clearChatHistory,
         feedbackModalOpen,
         setFeedbackModalOpen,
         submitWebsiteFeedback,

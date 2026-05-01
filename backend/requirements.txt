@@ -1,0 +1,14 @@
+# ============================================================
+#  Twacha AI — Backend Requirements
+#  Install with: pip install -r requirements.txt
+# ============================================================
+
+flask==3.0.3
+flask-cors==4.0.1
+tensorflow==2.16.1
+numpy==1.26.4
+opencv-python-headless==4.9.0.80
+Pillow==10.3.0
+openai>=1.0.0
+python-dotenv>=1.0.0
+reportlab>=4.0.0

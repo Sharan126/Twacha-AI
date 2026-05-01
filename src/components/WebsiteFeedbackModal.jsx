@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Star, X, Check, Image as ImageIcon, MessageSquarePlus } from 'lucide-react';
+import { Star, X, Check, Image as ImageIcon, MessageSquarePlus, Loader2 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
+import { feedbackApi } from '../api/feedbackApi';
 import './WebsiteFeedbackModal.css';
 
 const WebsiteFeedbackModal = () => {
-  const { feedbackModalOpen, setFeedbackModalOpen, submitWebsiteFeedback } = useAppContext();
+  const { feedbackModalOpen, setFeedbackModalOpen } = useAppContext();
+  const { profile } = useAuth();
   
   const [rating, setRating] = useState(0);
   const [hoverRating, setHoverRating] = useState(0);
@@ -13,25 +16,40 @@ const WebsiteFeedbackModal = () => {
   const [text, setText] = useState('');
   const [screenshot, setScreenshot] = useState(null);
   const [submitted, setSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
 
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
       // Create a fake object URL for display purposes
       const url = URL.createObjectURL(file);
-      setScreenshot({ name: file.name, url });
+      setScreenshot({ file, name: file.name, url });
     }
   };
 
-  const handleSubmit = () => {
-    if (rating === 0) return; // Basic validation
+  const handleSubmit = async () => {
+    setErrorMsg('');
+    if (rating === 0) {
+      setErrorMsg("Please select a rating");
+      return;
+    }
     
-    submitWebsiteFeedback({
+    setIsSubmitting(true);
+    
+    const response = await feedbackApi.submitFeedback({
       rating,
-      type,
-      text,
-      screenshot: screenshot ? screenshot.name : null
-    });
+      feedback_type: type,
+      message: text,
+      screenshot: screenshot ? screenshot.file : null
+    }, profile);
+    
+    setIsSubmitting(false);
+
+    if (!response.success) {
+      setErrorMsg(response.error);
+      return;
+    }
     
     setSubmitted(true);
     
@@ -162,12 +180,19 @@ const WebsiteFeedbackModal = () => {
                   )}
                 </div>
 
+                {errorMsg && (
+                  <div className="wfb-error text-danger" style={{ marginBottom: '1rem', fontSize: '0.9rem', textAlign: 'center' }}>
+                    {errorMsg}
+                  </div>
+                )}
                 <button 
                   className="wfb-submit-btn" 
-                  disabled={rating === 0}
+                  disabled={rating === 0 || isSubmitting}
                   onClick={handleSubmit}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
                 >
-                  Submit Feedback
+                  {isSubmitting && <Loader2 size={16} className="spinner" />}
+                  {isSubmitting ? 'Submitting...' : 'Submit Feedback'}
                 </button>
               </>
             ) : (

@@ -26,57 +26,39 @@ export const AuthProvider = ({ children }) => {
   };
 
   // -----------------------------------------
-  //   Signup — Two-step process:
-  //   Step 1: auth.signUp() with name + role as metadata.
-  //           DB trigger auto-creates the profiles row.
-  //   Step 2: If role = doctor, update profiles with extra fields.
-  //           (signUp only accepts email, password, options.data)
+  //   Send OTP
   // -----------------------------------------
-  const signUp = async ({ email, password, name, role, specialization, regNumber, clinicName }) => {
-    // Step 1 — Create auth user with metadata only
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          name,
-          role, // 'user' | 'doctor'
-        },
-      },
-    });
-
-    if (error) return { error };
-
-    // Step 2 — Update doctor-specific fields in profiles table
-    // The trigger creates the row first; we update extra columns after.
-    if (role === 'doctor' && data?.user) {
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .update({
-          specialization: specialization || null,
-          registration_number: regNumber || null,
-          clinic_name: clinicName || null,
-        })
-        .eq('id', data.user.id);
-
-      if (updateError) {
-        // Non-fatal — auth user was created, log and continue
-        console.warn('Doctor profile update failed:', updateError.message);
-      }
-    }
-
-    return { data };
+  const sendOtp = async (phone) => {
+    const { data, error } = await supabase.auth.signInWithOtp({ phone });
+    return { data, error };
   };
 
   // -----------------------------------------
-  //   Login
+  //   Verify OTP
   // -----------------------------------------
-  const signIn = async ({ email, password }) => {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) return { error };
+  const verifyOtp = async (phone, token) => {
+    const { data, error } = await supabase.auth.verifyOtp({
+      phone,
+      token,
+      type: 'sms'
+    });
+    return { data, error };
+  };
 
-    // profile is loaded via onAuthStateChange
-    return { data };
+  // -----------------------------------------
+  //   Update Profile (Role & Name for new users)
+  // -----------------------------------------
+  const completeProfile = async (userId, profileData) => {
+    // Upsert the profile record
+    const { data, error } = await supabase
+      .from('profiles')
+      .upsert({ id: userId, ...profileData });
+      
+    if (!error) {
+      setProfile(prev => ({ ...prev, ...profileData }));
+      setRole(profileData.role);
+    }
+    return { data, error };
   };
 
   // -----------------------------------------
@@ -152,8 +134,9 @@ export const AuthProvider = ({ children }) => {
         role,
         loading,
         isAuthenticated,
-        signUp,
-        signIn,
+        sendOtp,
+        verifyOtp,
+        completeProfile,
         logout,
         markFirstLoginDone,
       }}

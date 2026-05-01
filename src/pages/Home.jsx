@@ -3,10 +3,12 @@ import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Activity, ShieldCheck, Clock, ArrowRight, PlayCircle } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
+import { useTranslation } from 'react-i18next';
 import './Home.css';
 
 const Home = () => {
-  const { t, setIsWalkthroughActive } = useAppContext();
+  const { setIsWalkthroughActive } = useAppContext();
+  const { t } = useTranslation();
   const navigate = useNavigate();
 
   const containerVariants = {
