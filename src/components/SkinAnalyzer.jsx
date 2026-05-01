@@ -15,7 +15,7 @@ const SkinAnalyzer = () => {
       const loadedModel = await tf.loadLayersModel("/model.json");
       setModel(loadedModel);
 
-      const metadata = await fetch("/metadata.json");
+      const metadata = await fetch("https://twacha-ai.onrender.com/metadata.json");
       const meta = await metadata.json();
       setLabels(meta.labels);
     };
