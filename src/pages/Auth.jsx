@@ -9,7 +9,7 @@ import { useAuth } from '../context/AuthContext';
 import './Auth.css';
 
 const Auth = () => {
-  const { signUp, signIn, profile, isAuthenticated } = useAuth();
+  const { signUp, signIn, profile, isAuthenticated, loginAsDemo } = useAuth();
   const navigate = useNavigate();
 
   const [authMode, setAuthMode] = useState('login'); // 'login' or 'register'
@@ -62,7 +62,6 @@ const Auth = () => {
     if (error) {
       setApiError(error.message);
     }
-    // Success will trigger useEffect above
   };
 
   const handleSignup = async (e) => {
@@ -94,6 +93,15 @@ const Auth = () => {
     }
   };
 
+  const handleDemoClick = (roleType) => {
+    loginAsDemo(roleType);
+    if (roleType === 'doctor') {
+      navigate('/doctor-dashboard');
+    } else {
+      navigate('/patient-dashboard');
+    }
+  };
+
   const toggleMode = () => {
     setAuthMode(prev => prev === 'login' ? 'register' : 'login');
     setApiError('');
@@ -117,6 +125,38 @@ const Auth = () => {
             <p className="text-muted">
               {authMode === 'login' ? 'Sign in to your account' : 'Create a new account'}
             </p>
+          </div>
+
+          {/* Quick Demo Login Bar */}
+          <div className="demo-accounts-bar" style={{
+            background: 'rgba(255, 255, 255, 0.05)',
+            borderRadius: '12px',
+            padding: '1rem',
+            marginBottom: '1.25rem',
+            border: '1px solid var(--border-glass)',
+            textAlign: 'center'
+          }}>
+            <p style={{ margin: '0 0 0.75rem 0', fontSize: '0.85rem', fontWeight: 600, color: 'var(--primary-light)' }}>
+              ⚡ Instant 1-Click Demo Accounts
+            </p>
+            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
+              <button 
+                type="button"
+                className="btn-primary btn-sm flex-center"
+                style={{ flex: 1, padding: '0.5rem 0.75rem', fontSize: '0.85rem', gap: '0.4rem' }}
+                onClick={() => handleDemoClick('patient')}
+              >
+                <User size={15} /> Patient Demo
+              </button>
+              <button 
+                type="button"
+                className="btn-secondary btn-sm flex-center"
+                style={{ flex: 1, padding: '0.5rem 0.75rem', fontSize: '0.85rem', gap: '0.4rem' }}
+                onClick={() => handleDemoClick('doctor')}
+              >
+                <Stethoscope size={15} /> Doctor Demo
+              </button>
+            </div>
           </div>
 
           {/* Alerts */}

@@ -3,12 +3,43 @@ import { supabase } from '../config/supabaseClient';
 
 const AuthContext = createContext();
 
+const DEMO_PATIENT = {
+  id: 'demo-patient-123',
+  email: 'patient@demo.com',
+  full_name: 'Alex Johnson',
+  name: 'Alex Johnson',
+  role: 'patient',
+  age: 28,
+  gender: 'Male',
+  medical_history: 'Eczema sensitivity'
+};
+
+const DEMO_DOCTOR = {
+  id: 'demo-doctor-456',
+  email: 'dr.smith@demo.com',
+  full_name: 'Dr. Sarah Jenkins',
+  name: 'Dr. Sarah Jenkins',
+  role: 'doctor',
+  specialization: 'Dermatologist',
+  experience: '8 Years',
+  clinic_name: 'City Skin Care Clinic'
+};
+
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [session, setSession] = useState(null);
-  const [profile, setProfile] = useState(null); // data from profiles table
-  const [role, setRole] = useState(null);        // 'user' | 'doctor'
-  const [loading, setLoading] = useState(true);  // initial auth check
+  const [user, setUser] = useState(DEMO_PATIENT);
+  const [session, setSession] = useState({ user: DEMO_PATIENT });
+  const [profile, setProfile] = useState(DEMO_PATIENT); // data from profiles table
+  const [role, setRole] = useState('patient');           // 'patient' | 'doctor'
+  const [loading, setLoading] = useState(false);        // initial auth check
+
+  // Quick Demo Login function
+  const loginAsDemo = (targetRole = 'patient') => {
+    const demoData = targetRole === 'doctor' ? DEMO_DOCTOR : DEMO_PATIENT;
+    setUser(demoData);
+    setSession({ user: demoData });
+    setProfile(demoData);
+    setRole(demoData.role);
+  };
 
   // Fetch the profile row from the profiles table
   const fetchProfile = async (userId) => {
@@ -84,13 +115,14 @@ export const AuthProvider = ({ children }) => {
         const { data: { session }, error } = await supabase.auth.getSession();
         if (error) throw error;
         
-        setSession(session);
-        setUser(session?.user ?? null);
-
         if (session?.user) {
+          setSession(session);
+          setUser(session.user);
           const prof = await fetchProfile(session.user.id);
-          setProfile(prof);
-          setRole(prof?.role ?? null);
+          if (prof) {
+            setProfile(prof);
+            setRole(prof.role ?? null);
+          }
         }
       } catch (err) {
         console.error('Error getting session:', err);
@@ -104,16 +136,14 @@ export const AuthProvider = ({ children }) => {
     // Listen for auth state changes (login, logout, token refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-
         if (session?.user) {
+          setSession(session);
+          setUser(session.user);
           const prof = await fetchProfile(session.user.id);
-          setProfile(prof);
-          setRole(prof?.role ?? null);
-        } else {
-          setProfile(null);
-          setRole(null);
+          if (prof) {
+            setProfile(prof);
+            setRole(prof.role ?? null);
+          }
         }
         setLoading(false);
       }
@@ -136,6 +166,7 @@ export const AuthProvider = ({ children }) => {
         signUp,
         signIn,
         logout,
+        loginAsDemo,
         markFirstLoginDone,
       }}
     >
