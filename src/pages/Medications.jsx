@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Pill, Clock, Plus, Check, X, Bell } from 'lucide-react';
+import { Pill, Plus, Check, X, Bell } from 'lucide-react';
 import './Medications.css';
 
 const mockMeds = [

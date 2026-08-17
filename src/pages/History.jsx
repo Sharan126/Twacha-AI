@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Calendar, ChevronRight, Stethoscope, Star, Trash2, AlertTriangle, RefreshCw, Filter } from 'lucide-react';
+import { Calendar, Stethoscope, Trash2, AlertTriangle, RefreshCw, Filter } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../config/supabaseClient';
 import './History.css';
@@ -14,33 +14,8 @@ const History = () => {
 
   // Filters
   const [severityFilter, setSeverityFilter] = useState('all');
-  
-  useEffect(() => {
-    if (!profile) return;
-    fetchHistory();
 
-    // Set up realtime listeners
-    const scanSub = supabase
-      .channel('public:scan_history')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'scan_history', filter: `user_id=eq.${profile.id}` }, payload => {
-        fetchHistory(); // Easiest way to sync
-      })
-      .subscribe();
-
-    const consultSub = supabase
-      .channel('public:consultation_history')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'consultation_history', filter: `user_id=eq.${profile.id}` }, payload => {
-        fetchHistory();
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(scanSub);
-      supabase.removeChannel(consultSub);
-    };
-  }, [profile]);
-
-  const fetchHistory = async () => {
+  const fetchHistory = useCallback(async () => {
     setLoading(true);
     try {
       if (profile) {
@@ -60,10 +35,36 @@ const History = () => {
         if (consults) setConsultations(consults);
       }
     } catch (err) {
-      console.error(err);
+      console.error("Error fetching history:", err);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
-  };
+  }, [profile]);
+
+  useEffect(() => {
+    if (!profile) return;
+    fetchHistory();
+
+    // Set up realtime listeners
+    const scanSub = supabase
+      .channel('public:scan_history')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'scan_history', filter: `user_id=eq.${profile.id}` }, () => {
+        fetchHistory();
+      })
+      .subscribe();
+
+    const consultSub = supabase
+      .channel('public:consultation_history')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'consultation_history', filter: `user_id=eq.${profile.id}` }, () => {
+        fetchHistory();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(scanSub);
+      supabase.removeChannel(consultSub);
+    };
+  }, [profile, fetchHistory]);
 
   const deleteScan = async (id) => {
     if (window.confirm("Are you sure you want to delete this scan record?")) {

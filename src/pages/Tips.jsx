@@ -1,11 +1,9 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, Sun, Apple, Ban, ChevronDown, CheckCircle2 } from 'lucide-react';
-import { useAppContext } from '../context/AppContext';
 import './Tips.css';
 
 const Tips = () => {
-  const { t } = useAppContext();
   const [activeTab, setActiveTab] = useState('daily');
   const [expandedId, setExpandedId] = useState(null);
 

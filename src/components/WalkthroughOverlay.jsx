@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Play, Pause, SkipForward, SkipBack, Volume2, VolumeX, MessageSquareText, X } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
@@ -16,24 +16,15 @@ const WalkthroughOverlay = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const synthRef = useRef(window.speechSynthesis);
 
-  // Handle speech logic
-  useEffect(() => {
-    if (isWalkthroughActive && !isTextOnly) {
-      speak(walkthroughSteps[currentStep].text);
-    }
-    return () => {
-      synthRef.current.cancel();
-      setIsPlaying(false);
-    };
-  }, [currentStep, isWalkthroughActive, isTextOnly]);
-
-  const speak = (text) => {
+  const speak = useCallback((text) => {
     if (isVoiceMuted || isTextOnly) return;
     
-    synthRef.current.cancel();
+    const synth = synthRef.current;
+    if (!synth) return;
+    synth.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
     
-    const voices = synthRef.current.getVoices();
+    const voices = synth.getVoices();
     const preferredVoice = voices.find(v => v.lang.includes('en') && v.name.includes('Female')) || voices[0];
     if (preferredVoice) {
       utterance.voice = preferredVoice;
@@ -42,8 +33,21 @@ const WalkthroughOverlay = () => {
     utterance.onstart = () => setIsPlaying(true);
     utterance.onend = () => setIsPlaying(false);
     
-    synthRef.current.speak(utterance);
-  };
+    synth.speak(utterance);
+  }, [isVoiceMuted, isTextOnly]);
+
+  // Handle speech logic
+  useEffect(() => {
+    if (isWalkthroughActive && !isTextOnly && walkthroughSteps[currentStep]) {
+      speak(walkthroughSteps[currentStep].text);
+    }
+    return () => {
+      if (window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+      setIsPlaying(false);
+    };
+  }, [currentStep, isWalkthroughActive, isTextOnly, speak, walkthroughSteps]);
 
   const handlePlayPause = () => {
     if (isPlaying) {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../config/supabaseClient';
@@ -10,7 +10,7 @@ import {
 import './DoctorDashboard.css';
 
 const DoctorDashboard = () => {
-  const { session, profile } = useAuth();
+  const { session } = useAuth();
   const [activeTab, setActiveTab] = useState('overview');
   const [loading, setLoading] = useState(true);
 
@@ -30,14 +30,8 @@ const DoctorDashboard = () => {
   });
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState({ type: '', text: '' });
-
-  useEffect(() => {
-    if (session?.user) {
-      fetchDashboardData();
-    }
-  }, [session]);
-
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = useCallback(async () => {
+    if (!session?.user) return;
     setLoading(true);
     try {
       const doctorId = session.user.id;
@@ -53,7 +47,7 @@ const DoctorDashboard = () => {
         });
       }
 
-      // 2. Fetch Appointments & Patients (Assuming Tables Exist - Will handle gracefully if not)
+      // 2. Fetch Appointments & Patients
       const { data: aptData, error: aptError } = await supabase
         .from('appointments')
         .select(`*, patient:patient_id(full_name, age, gender)`)
@@ -91,18 +85,22 @@ const DoctorDashboard = () => {
           totalPatients: uniquePatients.length,
           appointmentsToday: todayApts.length,
           pending: pendingApts.length,
-          earnings: acceptedApts.length * 500 // ₹500 per accepted appt as baseline
+          earnings: acceptedApts.length * 500
         });
       } else {
-        // Fallback stats if tables not set up yet
         setStats({ totalPatients: 0, appointmentsToday: 0, pending: 0, earnings: 0 });
       }
 
     } catch (error) {
       console.error("Error fetching doctor data:", error);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
-  };
+  }, [session]);
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, [fetchDashboardData]);
 
   const handleUpdateStatus = async (id, newStatus) => {
     // Optimistic UI update

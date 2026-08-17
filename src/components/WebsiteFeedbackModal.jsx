@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Star, X, Check, Image as ImageIcon, MessageSquarePlus, Loader2 } from 'lucide-react';
+import { Star, X, Check, Image as ImageIcon, Loader2 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { feedbackApi } from '../api/feedbackApi';

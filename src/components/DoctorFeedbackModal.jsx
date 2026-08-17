@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Star, X, Check, Video, Stethoscope } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
@@ -20,16 +20,18 @@ const DoctorFeedbackModal = () => {
   const [recommend, setRecommend] = useState(null); // true, false, or null
   const [submitted, setSubmitted] = useState(false);
 
-  // Reset state when modal opens with new doctor
+  // Reset state when modal doctor changes
+  const docId = doctorFeedbackModal?.doctorId;
   useEffect(() => {
-    if (doctorFeedbackModal && !submitted) {
+    if (docId) {
       setOverall(0);
       setHoverOverall(0);
       setCategories({ communication: 0, treatment: 0, timeManagement: 0 });
       setReview('');
       setRecommend(null);
+      setSubmitted(false);
     }
-  }, [doctorFeedbackModal]);
+  }, [docId]);
 
   if (!doctorFeedbackModal) return null;
 

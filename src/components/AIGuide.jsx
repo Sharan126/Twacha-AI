@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Bot, X, Send, Mic, MicOff, Volume2, VolumeX, Trash2 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
@@ -157,8 +157,8 @@ const AIGuide = () => {
     if (!text.trim() || isChatTyping) return;
 
     const userText = text.trim();
-    const userMsgId = Date.now();
-    const aiMsgId = Date.now() + 1;
+    const userMsgId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'user-' + String(Date.now());
+    const aiMsgId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'ai-' + String(Date.now());
 
     // 1. Add user message
     setChatMessages((prev) => [

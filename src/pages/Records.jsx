@@ -1,4 +1,3 @@
-import React from 'react';
 import { motion } from 'framer-motion';
 import { Activity, Camera, Stethoscope, Pill, CheckCircle } from 'lucide-react';
 import './Records.css';

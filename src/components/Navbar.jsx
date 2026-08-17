@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+import { NavLink } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sun, Moon, Shield, ShieldOff, Globe, Menu, LogIn, User, X, MessageSquarePlus } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
@@ -17,7 +17,7 @@ const Navbar = () => {
   } = useAppContext();
   const { t } = useTranslation();
 
-  const { isAuthenticated, profile, logout } = useAuth();
+  const { isAuthenticated, profile } = useAuth();
   const user = profile; // profile has name, role fields
 
   const [mobileOpen, setMobileOpen] = useState(false);

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -7,7 +7,7 @@ import { User, Calendar, Save, Loader, Activity, Camera, AlertCircle, CheckCircl
 import './Settings.css';
 
 const PatientDashboard = () => {
-  const { session, profile: authProfile } = useAuth();
+  const { session } = useAuth();
   const navigate = useNavigate();
   
   const [loading, setLoading] = useState(true);
@@ -23,11 +23,7 @@ const PatientDashboard = () => {
 
   const [scans, setScans] = useState([]);
 
-  useEffect(() => {
-    fetchData();
-  }, [session]);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     if (!session?.user) return;
     
     setLoading(true);
@@ -48,18 +44,23 @@ const PatientDashboard = () => {
       });
     }
 
-    // 2. Fetch scan history
-    const { data: sData } = await supabase
+    // 2. Fetch Scans
+    const { data: scanData } = await supabase
       .from('scan_history')
       .select('*')
       .eq('user_id', session.user.id)
-      .order('created_at', { ascending: false })
-      .limit(5);
+      .order('created_at', { ascending: false });
 
-    if (sData) setScans(sData);
-
+    if (scanData) {
+      setScans(scanData);
+    }
+    
     setLoading(false);
-  };
+  }, [session]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const handleSave = async (e) => {
     e.preventDefault();

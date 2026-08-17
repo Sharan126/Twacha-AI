@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Star, ExternalLink, Filter, CheckCircle, Clock, Trash2, ShieldAlert } from 'lucide-react';
+import { Star, ExternalLink, Filter, CheckCircle, ShieldAlert } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { feedbackApi } from '../api/feedbackApi';
 import { useNavigate } from 'react-router-dom';
@@ -13,22 +13,22 @@ const AdminFeedback = () => {
   const [loading, setLoading] = useState(true);
   const [filterType, setFilterType] = useState('All');
 
-  useEffect(() => {
-    if (!profile) {
-      navigate('/auth');
-      return;
-    }
-    fetchFeedbacks();
-  }, [profile, navigate]);
-
-  const fetchFeedbacks = async () => {
+  const fetchFeedbacks = useCallback(async () => {
     setLoading(true);
     const res = await feedbackApi.getFeedback();
     if (res.success) {
       setFeedbacks(res.data);
     }
     setLoading(false);
-  };
+  }, []);
+
+  useEffect(() => {
+    if (!profile) {
+      navigate('/auth');
+      return;
+    }
+    fetchFeedbacks();
+  }, [profile, navigate, fetchFeedbacks]);
 
   const handleUpdateStatus = async (id, status) => {
     const res = await feedbackApi.updateStatus(id, status);

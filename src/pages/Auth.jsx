@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -6,11 +6,9 @@ import {
   ArrowLeft, AlertCircle, CheckCircle, Loader, Eye, EyeOff
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { useTranslation } from 'react-i18next';
 import './Auth.css';
 
 const Auth = () => {
-  const { t } = useTranslation();
   const { signUp, signIn, profile, isAuthenticated } = useAuth();
   const navigate = useNavigate();
 

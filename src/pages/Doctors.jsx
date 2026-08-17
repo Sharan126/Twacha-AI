@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Star, MapPin, Video, Stethoscope, Filter, CheckCircle, X, MessageSquare, Compass, RefreshCw } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { motion } from 'framer-motion';
+import { Star, MapPin, Video, Stethoscope, Filter, CheckCircle, MessageSquare, Compass, RefreshCw } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -29,7 +29,7 @@ const DEFAULT_FILTERS = {
 };
 
 const Doctors = () => {
-  const { setDoctorFeedbackModal, language: appLang } = useAppContext();
+  const { language: appLang } = useAppContext();
   const { profile } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -44,6 +44,7 @@ const Doctors = () => {
 
   // Ask for location
   const locateUser = () => {
+    if (!navigator.geolocation) return;
     setLocating(true);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
@@ -58,7 +59,14 @@ const Doctors = () => {
   };
 
   useEffect(() => {
-    locateUser();
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        },
+        (err) => console.warn("Geolocation fallback:", err)
+      );
+    }
   }, []);
 
   const handleBook = async (doc) => {
@@ -96,7 +104,7 @@ const Doctors = () => {
         distance: getDistance(userLocation.lat, userLocation.lng, doc.lat, doc.lng)
       }));
     } else {
-      list = list.map(doc => ({ ...doc, distance: 5 + Math.random() * 5 })); // Mock if no location
+      list = list.map((doc, idx) => ({ ...doc, distance: 5 + (idx % 5) })); // Deterministic mock if no location
     }
 
     // 2. Determine AI recommendation match

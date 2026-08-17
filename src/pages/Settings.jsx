@@ -1,7 +1,6 @@
-import React from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { User, Bell, Shield, Globe, Moon, CreditCard, LogOut } from 'lucide-react';
+import { User, Shield, Globe, LogOut } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from 'react-i18next';

@@ -1,9 +1,15 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../config/supabaseClient';
 import { useAuth } from '../context/AuthContext';
 import { ArrowLeft, Send } from 'lucide-react';
 import './Chat.css';
+
+const mockDoctors = [
+  { id: '1', name: 'Dr. Sarah Jenkins', image: 'https://i.pravatar.cc/150?img=1' },
+  { id: '2', name: 'Dr. Rajesh Kumar', image: 'https://i.pravatar.cc/150?img=11' },
+  { id: '3', name: 'Dr. Priya Sharma', image: 'https://i.pravatar.cc/150?img=5' }
+];
 
 const Chat = () => {
   const { doctorId } = useParams();
@@ -12,17 +18,12 @@ const Chat = () => {
   
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
-  const [doctorInfo, setDoctorInfo] = useState(null);
+  const [doctorInfo, setDoctorInfo] = useState(() => {
+    return mockDoctors.find(d => d.id === doctorId) || { id: doctorId, name: 'Doctor', image: 'https://i.pravatar.cc/150' };
+  });
   const messagesEndRef = useRef(null);
 
-  const mockDoctors = [
-    { id: '1', name: 'Dr. Sarah Jenkins', image: 'https://i.pravatar.cc/150?img=1' },
-    { id: '2', name: 'Dr. Rajesh Kumar', image: 'https://i.pravatar.cc/150?img=11' },
-    { id: '3', name: 'Dr. Priya Sharma', image: 'https://i.pravatar.cc/150?img=5' }
-  ];
-
   useEffect(() => {
-    // Find doctor info
     const doc = mockDoctors.find(d => d.id === doctorId) || { id: doctorId, name: 'Doctor', image: 'https://i.pravatar.cc/150' };
     setDoctorInfo(doc);
 

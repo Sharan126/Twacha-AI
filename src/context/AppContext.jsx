@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 
 const AppContext = createContext();
@@ -41,7 +41,7 @@ export const AppProvider = ({ children }) => {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
-    } catch (e) { /* ignore */ }
+    } catch { /* ignore */ }
     return [{ id: 1, sender: 'ai', text: t('chatbot.default_ai') }];
   });
   const [isChatTyping, setIsChatTyping] = useState(false);
@@ -52,7 +52,7 @@ export const AppProvider = ({ children }) => {
       // Keep last 20 messages in storage
       const toSave = chatMessages.slice(-20);
       localStorage.setItem('twacha_chat_history', JSON.stringify(toSave));
-    } catch (e) { /* ignore */ }
+    } catch { /* ignore */ }
   }, [chatMessages]);
 
   const clearChatHistory = () => {
